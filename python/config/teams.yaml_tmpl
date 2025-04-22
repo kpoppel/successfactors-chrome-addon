@@ -1,0 +1,15 @@
+teams:
+  - name: "Team 1"
+    members:
+      - name: "Name One"
+        birthday: "YYYY-MM-DD"
+        title: "Nice Title"
+      - name: "Name Two"
+        birthday: "YYYY-MM-DD"
+        title: "Another Title"
+  - name: "Team 2"
+    members:
+      - name: "Name Three"
+        birthday: ""        # <-- Not sharing the birthday
+        title: "Yet another Title"
+      - also: "Name One"    # <-- The person is also member of this team

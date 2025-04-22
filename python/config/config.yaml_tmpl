@@ -1,0 +1,9 @@
+---
+jsessionid: <insert an active JSESSIONID here>
+token: <insert an active z-ajax-token here>
+from_date: 'YYYY-MM-DD'
+to_date: 'YYYY-MM-DD'
+initial_userid: '<insert initial userid>'
+more_userids:
+    - '<insert additional userid>'
+    - '<insert additional userid>'

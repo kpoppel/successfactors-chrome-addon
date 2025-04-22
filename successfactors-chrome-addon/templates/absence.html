@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Absence Statistics</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; position: sticky; top: 0; cursor: pointer; }
+        th.sortable { position: relative; }
+        th.sortable::after {
+            content: '';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 5px solid transparent;
+        }
+        th.sortable.asc::after {
+            border-bottom-color: black;
+        }
+        th.sortable.desc::after {
+            border-top-color: black;
+        }
+        .filters { margin-bottom: 20px; }
+        .hidden { display: none; }
+        input[type="text"] { width: 100%; box-sizing: border-box; }
+        select { width: 100%; }
+        .days-remaining { font-size: 0.8em; color: #666; }
+        .disabled-cell { 
+            background-color: #f0f0f0; 
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <h1>Absence Statistics {{date}}</h1>
+    <table id="absenceTable">
+        {{tableContent}}
+    </table>
+    <script>
+        let currentSortColumn = -1;
+        let currentSortDirection = 'none'; // 'asc', 'desc', or 'none'
+
+        function filterTeam() {
+            const selectedTeam = document.getElementById('teamDropdown').value;
+            document.querySelectorAll('tbody tr').forEach(function(row) {
+                if (selectedTeam === 'all') {
+                    row.classList.remove('hidden');
+                } else if (row.classList.contains(selectedTeam)) {
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+        }
+
+        function searchNames() {
+            const input = document.getElementById('nameSearch');
+            const filter = input.value.toLowerCase();
+            document.querySelectorAll('tbody tr').forEach(function(row) {
+                const name = row.querySelector('td').textContent.toLowerCase();
+                if (name.includes(filter)) {
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+        }
+
+        function toggleDaysDisplay() {
+            const showTotal = document.getElementById('showTotalDays').checked;
+            document.querySelectorAll('tbody tr td:nth-child(3)').forEach(cell => {
+                cell.textContent = showTotal ? cell.dataset.total : cell.dataset.remaining;
+            });
+            
+            // Re-sort if the column is currently sorted
+            if (currentSortColumn === 2) {
+                sortTable(2);
+            }
+        }
+
+        function sortTable(columnIndex) {
+            const table = document.getElementById("absenceTable");
+            const rows = Array.from(table.rows).slice(1); // Exclude header row
+            const isNumeric = columnIndex > 1; // Numeric sorting for absence columns
+            const isAvailableDays = columnIndex === 2; // Special handling for available days column
+            const showTotal = isAvailableDays && document.getElementById('showTotalDays').checked;
+
+            // Determine the next sort direction
+            let direction;
+            if (currentSortColumn === columnIndex) {
+                if (currentSortDirection === 'none') {
+                    direction = 'desc';
+                } else if (currentSortDirection === 'desc') {
+                    direction = 'asc';
+                } else {
+                    direction = 'none';
+                }
+            } else {
+                direction = 'desc';
+            }
+
+            currentSortColumn = columnIndex;
+            currentSortDirection = direction;
+
+            if (direction === 'none') {
+                // Reset to default sorting by name
+                rows.sort((a, b) => a.cells[0].textContent.trim().localeCompare(b.cells[0].textContent.trim()));
+            } else {
+                rows.sort((a, b) => {
+                    const cellA = a.cells[columnIndex].textContent.trim();
+                    const cellB = b.cells[columnIndex].textContent.trim();
+                    
+                    // Handle disabled cells in sorting
+                    if (cellA === '-' && cellB === '-') return 0;
+                    if (cellA === '-') return direction === 'asc' ? 1 : -1;
+                    if (cellB === '-') return direction === 'asc' ? -1 : 1;
+                    
+                    if (isAvailableDays) {
+                        const valueA = showTotal ? cellA.dataset.total : cellA.dataset.remaining;
+                        const valueB = showTotal ? cellB.dataset.total : cellB.dataset.remaining;
+                        const [accruedA] = valueA.split('/').map(Number);
+                        const [accruedB] = valueB.split('/').map(Number);
+                        return direction === "asc" ? accruedA - accruedB : accruedB - accruedA;
+                    }
+                    if (isNumeric) {
+                        return direction === "asc" ? cellA - cellB : cellB - cellA;
+                    } else {
+                        return direction === "asc" ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+                    }
+                });
+            }
+
+            const tbody = table.querySelector("tbody");
+            rows.forEach(row => tbody.appendChild(row));
+
+            // Update sort icons
+            document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('asc', 'desc'));
+            if (direction !== 'none') {
+                const header = table.rows[0].cells[columnIndex];
+                header.classList.add(direction);
+            }
+        }
+    </script>
+</body>
+</html>

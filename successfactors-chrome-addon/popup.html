@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- UIkit CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/uikit@3.17.8/dist/css/uikit.min.css"
+    />
+
+    <!-- Yaml and compression libraries -->
+    <script src="./lib/js-yaml.min.js"></script>
+    <script src="./lib/pako.min.js"></script>
+    <!-- UIkit JS -->
+    <script src="./lib/uikit.min.js"></script>
+    <script src="./lib/uikit-icons.min.js"></script>
+    <title>eSW Holiday downloader v1.0</title>
+    <style>
+      body {
+        padding: 20px;
+      }
+
+      .toggle-container {
+        margin-top: 10px;
+      }
+      body {
+        display: flex; 
+        flex-direction: column; 
+        min-width: 350px; /* Optional: Set a maximum width for the popup */
+      }
+      .download-button {
+        margin-top: 20px;
+      }
+  .downloads-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 columns */
+    gap: 10px; /* Space between grid items */
+    text-align: center; /* Center-align text and icons */
+  }
+
+  .downloads-grid div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .uk-button {
+    width: 100%; /* Make buttons fill their grid cell */
+  }
+    </style>
+  </head>
+
+  <body>
+
+    <div class="uk-container uk-padding-small">
+      <h2 class="uk-text-lead uk-margin-small">eSW holiday data</h2>
+
+      <!-- Checkbox used for setup -->
+      <form id="optionsForm" class="toggle-container">
+        <label for="setup_toggle" class="uk-text-small">
+          <input id="setup_toggle" type="checkbox" class="uk-checkbox" />
+          Check this box when setup is completed.
+        </label>
+      </form>
+
+      <!-- Form shown when setting options -->
+      <div id="setup-container" class="uk-grid" style="display: none;">
+        <form id="setupForm" class="toggle-container">
+          <h4 class="uk-text-small">Configuration</h4>
+          <label for="from_date" class="uk-text-small">
+            From Date (YYYY-MM-DD)
+            <br>
+            <input id="from_date" type="text"/>
+          </label>
+          <br>
+          <label for="to_date" class="uk-text-small">
+            To Date (YYYY-MM-DD)
+            <br>
+            <input id="to_date" type="text"/>
+          </label>
+          <br>
+        </form>
+      </div>
+
+      <!-- Popup shown when extracting tokens when setup is completed -->
+      <div id="output-container" class="uk-margin" style="display: block;">
+        <!-- Load Data Button -->
+        <div class="uk-margin-small">
+          <button id="fetch-raw-data-button" class="uk-button uk-button-primary uk-button-small uk-width-1-1">
+            <span uk-icon="cloud-upload"></span> Load Data to Extension
+          </button>
+        </div>        
+
+        <div class="downloads-grid">
+          <div>
+            <button id="fetch-calendar-button" class="uk-button uk-button-secondary uk-button-small">
+              <span uk-icon="calendar"></span><br>Holiday Calendar
+            </button>
+          </div>
+          <div>
+            <button id="fetch-absence-button" class="uk-button uk-button-secondary uk-button-small">
+              <span uk-icon="user"></span><br>Absence Details
+            </button>
+          </div>
+          <div>
+            <button id="fetch-org-chart-button" class="uk-button uk-button-secondary uk-button-small">
+              <span uk-icon="users"></span><br>OrgChart File
+            </button>
+          </div>
+          <div>
+            <button id="fetch-ics-button" class="uk-button uk-button-secondary uk-button-small">
+              <span uk-icon="file-text"></span><br>ICS Calendar
+            </button>
+          </div>
+          <div>
+            <button id="fetch-data-button" class="uk-button uk-button-secondary uk-button-small">
+              <span uk-icon="database"></span><br>Raw Data
+            </button>
+          </div>
+        </div>  
+      </div> <!-- output-container -->
+
+      <p id="notification-container" class="uk-text-success"></p>
+    </div> <!-- top level div -->
+    <script type="module" src="options.js"></script>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
