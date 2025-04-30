@@ -28,13 +28,13 @@ def calculate_accrued_time(today):
 def get_regular_holiday_color(days_left):
     """Color based on remaining days"""
     if days_left < 0:
-        print(f"Days left < 0: {days_left}")
+        #print(f"Days left < 0: {days_left}")
         return '#e6b3ff'  # purple
     if days_left <= 5:
-        print(f"Days left <=5: {days_left}")
+        #print(f"Days left <=5: {days_left}")
         return ''  # no color
     if days_left <= 10:
-        print(f"Days left <=10: {days_left}")
+        #print(f"Days left <=10: {days_left}")
         return '#ffffcc'  # yellow
     if days_left <= 15:
         return '#ffcc99'  # orange
@@ -106,7 +106,7 @@ def generate_absence_stats_html(today):
     stats, all_types_set = calculate_absences(teams, data)
     
     # Define the desired order for absence types
-    predefined_order = ['time-off', 'holiday', 'extra-holiday', 'sickness', 'part-time-sick-(with-full-pay)', "child's-sick-day", 'day-off-with-pay']
+    predefined_order = ['time-off', 'holiday', 'extra-holiday', 'vacation', 'sickness', 'part-time-sick-(with-full-pay)', "child's-sick-day", 'day-off-with-pay']
     
     # Get unique absence types and sort them
     all_types = sorted(all_types_set, key=lambda x: (predefined_order.index(x) if x in predefined_order else len(predefined_order), x))
@@ -180,45 +180,39 @@ def generate_absence_stats_html(today):
     for name, data in sorted(stats.items()):
         team_class = data['team'].replace(' ', '_')
         has_holiday = 'holiday' in data['types'] or 'extra-holiday' in data['types']
+        has_vacation = 'vacation' in data['types']
+        has_time_off = 'time-off' in data['types']
         
-        if has_holiday:
-            remaining_days = f"{round(accrued - data['types'].get('holiday', 0), 2)}/{round(extra - data['types'].get('extra-holiday', 0), 2)}"
-        else:
-            time_off = data['types'].get('time-off', 0)
-            remaining_accrued = round(accrued - time_off, 2)
-            remaining_extra = extra
-            remaining_days = f"{remaining_accrued}/{remaining_extra}"
+        if has_holiday:    # DK fields
+            accrued_remaining = accrued - data['types'].get('holiday', 0)
+            extra_remaining = extra - data['types'].get('extra-holiday', 0)
+            remaining_days = round(accrued_remaining + extra_remaining, 2)
+        elif has_vacation: # DE fields
+            accrued_remaining = accrued - data['types'].get('vacation', 0)
+            remaining_days = round(accrued_remaining, 2)
+        elif has_time_off: # fields for DK/DE where not direct report
+            accrued_time_off = accrued - data['types'].get('time-off', 0)
+            remaining_days = round(accrued_time_off, 2)
             
-        total_days = f"{accrued}/{extra}"
-        
+        print(f"Name: {name}, Remaining Days: {remaining_days}, Team: {data['team']}")
         html_content += f'''<tr class='{team_class}'>
             <td>{name}</td>
             <td>{data['team']}</td>
-            <td data-remaining="{remaining_days}" data-total="{total_days}">{remaining_days}</td>'''
+            <td data-remaining="{remaining_days}" data-total="{remaining_days}">{remaining_days}</td>'''
         
         for absence_type in all_types:
-            count = data['types'].get(absence_type, 0)
-            cell_style = ""
-            
-            # Handle disabled cells
-            if (absence_type == 'time-off' and has_holiday) or \
-               ((absence_type == 'holiday' or absence_type == 'extra-holiday') and not has_holiday):
-                cell_style = 'class="disabled-cell"'
-                count = '-'
+            cell_style = ''
+            count = data['types'].get(absence_type, '-')
+            if absence_type not in ['vacation', 'holiday', 'time-off', 'extra-holiday']:
+                if count == '-':
+                    cell_style = 'class="disabled-cell"'
             else:
-                # Regular coloring logic
-                if absence_type == 'time-off' and not has_holiday:
-                    days_left = accrued + extra - count
-                    color = get_cell_color(days_left, today, year_end)
-                    cell_style = f'style="background-color: {color}"' if color else ''
-                elif absence_type == 'holiday':
-                    days_left = accrued - count
-                    color = get_cell_color(days_left, today, year_end)
-                    cell_style = f'style="background-color: {color}"' if color else ''
-                elif absence_type == 'extra-holiday':
-                    days_left = extra - count
-                    color = get_cell_color(days_left, today, aug_end, is_extra=True)
-                    cell_style = f'style="background-color: {color}"' if color else ''
+                count = data['types'].get(absence_type, 0)
+                if absence_type == 'extra-holiday':
+                    color = get_cell_color(remaining_days, today, year_end, is_extra=True)
+                else:
+                    color = get_cell_color(remaining_days, today, year_end, is_extra=False)
+                cell_style = f'style="background-color: {color}"' if color else ''
                 
             html_content += f'<td {cell_style}>{count}</td>'
         

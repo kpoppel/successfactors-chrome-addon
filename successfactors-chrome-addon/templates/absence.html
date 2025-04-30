@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>Absence Statistics</title>
     <style>
+        :root {
+            /* Colors will be injected by JavaScript */
+        }
         body { font-family: Arial, sans-serif; margin: 20px; }
         table { border-collapse: collapse; width: 100%; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -32,10 +35,41 @@
             background-color: #f0f0f0; 
             color: #999;
         }
+        .legend {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+        }
+        .legend-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+        }
+        .legend-above { background-color: var(--color-above); }
+        .legend-crit { background-color: var(--color-crit); }
+        .legend-warn { background-color: var(--color-warn); }
+        .legend-note { background-color: var(--color-note); }
     </style>
 </head>
 <body>
     <h1>Absence Statistics {{date}}</h1>
+    <div class="legend">
+        <div class="legend-item"><span class="legend-color legend-above"></span> Negative balance</div>
+        <div class="legend-item"><span class="legend-color legend-crit"></span> More than 15 days remaining</div>
+        <div class="legend-item"><span class="legend-color legend-warn"></span> 10-15 days remaining</div>
+        <div class="legend-item"><span class="legend-color legend-note"></span> 5-10 days remaining</div>
+        <div class="legend-item">No color: 5 or fewer days remaining</div>
+        <br>
+        <small>* For extra holiday in August, colors indicate weeks remaining until deadline</small><br>
+        <small>* Time off column numbers is the sum of all absences for non-directs and cannot be used directly for holiday spend calculations</small>
+    </div>
     <table id="absenceTable">
         {{tableContent}}
     </table>
@@ -118,14 +152,7 @@
                     if (cellA === '-') return direction === 'asc' ? 1 : -1;
                     if (cellB === '-') return direction === 'asc' ? -1 : 1;
                     
-                    if (isAvailableDays) {
-                        const valueA = showTotal ? cellA.dataset.total : cellA.dataset.remaining;
-                        const valueB = showTotal ? cellB.dataset.total : cellB.dataset.remaining;
-                        const [accruedA] = valueA.split('/').map(Number);
-                        const [accruedB] = valueB.split('/').map(Number);
-                        return direction === "asc" ? accruedA - accruedB : accruedB - accruedA;
-                    }
-                    if (isNumeric) {
+                    if (isNumeric || isAvailableDays) {
                         return direction === "asc" ? cellA - cellB : cellB - cellA;
                     } else {
                         return direction === "asc" ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);

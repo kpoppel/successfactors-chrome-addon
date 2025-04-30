@@ -1,5 +1,12 @@
 import { downloadFile } from './common.js';
 
+const COLORS = {
+    ABOVE: '#e6b3ff',  // purple - for negative balance
+    CRIT: '#ffcccc',   // red - for >15 days
+    WARN: '#ffcc99',   // orange - for 10-15 days
+    NOTE: '#ffffcc',   // yellow - for 5-10 days
+};
+
 export async function generateAbsenceAndDownload(absenceData) {
     const teamsResponse = await fetch(chrome.runtime.getURL('config/teams.yaml'));
     const teams = jsyaml.load(await teamsResponse.text());
@@ -66,7 +73,7 @@ async function generateAbsenceStatsHtml(absenceData, teams, accrued, extra, toda
     const augEnd = new Date(Date.UTC(today.getUTCFullYear(), 7, 31));
     const utcToday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
 
-    const predefinedOrder = ['time-off', 'vacation', 'holiday', 'extra-holiday', 'sickness', 'part-time-sick-(with-full-pay)', "child's-sick-day", 'day-off-with-pay'];
+    const predefinedOrder = ['time-off', 'holiday', 'extra-holiday', 'vacation', 'sickness', 'part-time-sick-(with-full-pay)', "child's-sick-day", 'day-off-with-pay'];
     // More fields could be defined:
     //  holiday, extera-holiday, sickness, child-sickness-paid, child-sickness-unpaid, child's-sick day, day-off-with-pay,
     //  flextime, parental-leave, sickness-with sick note, special-leave, tarif-regulated leave, time-deviation, vacation
@@ -92,6 +99,12 @@ async function generateAbsenceStatsHtml(absenceData, teams, accrued, extra, toda
     for (const [placeholder, value] of Object.entries(replacements)) {
         template = template.replace(placeholder, value);
     }
+
+    template = template.replace(':root {', `:root {
+        --color-above: ${COLORS.ABOVE};
+        --color-crit: ${COLORS.CRIT};
+        --color-warn: ${COLORS.WARN};
+        --color-note: ${COLORS.NOTE};`);
 
     return template;
 }
@@ -145,83 +158,89 @@ function generateTableBody(stats, allTypes, accrued, extra, today, yearEnd, augE
 function calculateRemainingDays(data, accrued, extra) {
     const types = data.types;
     const hasHoliday = types['holiday'] !== undefined || types['extra-holiday'] !== undefined;
+    const hasVacation = types['vacation'] !== undefined;
+    const hasTimeOff = types['time-off'] !== undefined;
     
-    if (hasHoliday) {
-        const remainingAccrued = accrued - (types['holiday'] || 0);
-        const remainingExtra = extra - (types['extra-holiday'] || 0);
-        return `${remainingAccrued.toFixed(2)}/${remainingExtra.toFixed(2)}`;
+    let remainingDays;
+    if (hasHoliday) {    // DK fields
+        const accruedRemaining = accrued - (types['holiday'] || 0);
+        const extraRemaining = extra - (types['extra-holiday'] || 0);
+        remainingDays = accruedRemaining + extraRemaining;
+    } else if (hasVacation) { // DE fields
+        remainingDays = accrued - (types['vacation'] || 0);
+    } else if (hasTimeOff) { // fields for DK/DE where not direct report
+        remainingDays = accrued - (types['time-off'] || 0);
     } else {
-        const timeOff = types['time-off'] || 0;
-        const remainingAccrued = accrued - timeOff;
-        return `${remainingAccrued.toFixed(2)}/${extra.toFixed(2)}`;
+        remainingDays = accrued;
     }
+    
+    return remainingDays.toFixed(2);
 }
 
 function generateTableRow(name, data, allTypes, accrued, extra, today, yearEnd, augEnd) {
     const teamClass = data.team.replace(' ', '_');
-    const hasHoliday = data.types['holiday'] !== undefined || data.types['extra-holiday'] !== undefined;
-    
-    const remainingDays = calculateRemainingDays(data, accrued, extra, hasHoliday);
-    const totalDays = `${accrued}/${extra}`;
-    
+    const remainingDays = calculateRemainingDays(data, accrued, extra);
+    const totalDays = (accrued + extra).toFixed(2);
     return `
         <tr class='${teamClass}'>
             <td>${name}</td>
             <td>${data.team}</td>
             <td data-remaining="${remainingDays}" data-total="${totalDays}">${remainingDays}</td>
-            ${generateTypeCells(data, allTypes, hasHoliday, accrued, extra, today, yearEnd, augEnd)}
+            ${generateTypeCells(data, allTypes, accrued, extra, today, yearEnd, augEnd)}
         </tr>`;
 }
 
 function getRegularHolidayColor(daysLeft) {
-    if (daysLeft < 0) return '#e6b3ff';  // purple
-    if (daysLeft <= 5) return '';  // no color
-    if (daysLeft <= 10) return '#ffffcc';  // yellow
-    if (daysLeft <= 15) return '#ffcc99';  // orange
-    return '#ffcccc';  // red
+    if (daysLeft < 0) return COLORS.ABOVE;
+    if (daysLeft <= 5) return '';
+    if (daysLeft <= 10) return COLORS.NOTE;
+    if (daysLeft <= 15) return COLORS.WARN;
+    return COLORS.CRIT;
 }
 
 function getExtraHolidayColor(daysLeft, today, augEnd) {
-    if (today.getUTCMonth() !== 7) return ''; // August is month 7 in UTC
-    
+    if (today.getUTCMonth() !== 7) return '';
+
     const daysUntilEnd = Math.floor((augEnd - today) / (1000 * 60 * 60 * 24));
     const weeksLeft = Math.floor(daysUntilEnd / 7);
     
-    if (daysLeft === 0) return '';  // no color if days are spent
-    if (weeksLeft >= 3) return '#ffffcc';  // yellow - first week
-    if (weeksLeft >= 2) return '#ffcc99';  // orange - second week
-    if (weeksLeft >= 1) return '#ffcccc';  // red - third week
-    return '#e6b3ff';  // purple - fourth week
+    if (daysLeft === 0) return '';
+    if (weeksLeft >= 3) return COLORS.NOTE;
+    if (weeksLeft >= 2) return COLORS.WARN;
+    if (weeksLeft >= 1) return COLORS.CRIT;
+    return COLORS.ABOVE;
 }
 
 function getCellColor(daysLeft, today, deadline, isExtra = false) {
     return isExtra ? getExtraHolidayColor(daysLeft, today, deadline) : getRegularHolidayColor(daysLeft);
 }
 
-function generateTypeCells(data, allTypes, hasHoliday, accrued, extra, today, yearEnd, augEnd) {
+function generateTypeCells(data, allTypes, accrued, extra, today, yearEnd, augEnd) {
     return allTypes.map(absenceType => {
-        const count = data.types[absenceType] || 0;
         let cellStyle = '';
-        
-        if ((absenceType === 'time-off' && hasHoliday) || 
-            ((absenceType === 'holiday' || absenceType === 'extra-holiday') && !hasHoliday)) {
-            return `<td class="disabled-cell">-</td>`;
+        let count = data.types[absenceType];
+        console.log("Absence type:", absenceType, "Count:", count, "Logic:", (absenceType === 'vacation' || absenceType === 'holiday' || absenceType === 'time-off' || absenceType === 'extra-holiday') && count !== undefined);
+        if ((absenceType === 'vacation' || absenceType === 'holiday' || 
+            absenceType === 'time-off' || absenceType === 'extra-holiday') &&
+            count !== undefined) {
+            count = data.types[absenceType] || 0;
+
+            if (absenceType === 'extra-holiday') {
+                const daysLeft = extra - count;
+                const color = getCellColor(daysLeft, today, augEnd, true);
+                cellStyle = color ? ` style="background-color: ${color}"` : '';
+            } else {
+                const daysLeft = accrued - count;
+                const color = getCellColor(daysLeft, today, yearEnd);
+                cellStyle = color ? ` style="background-color: ${color}"` : '';
+            }
+        } else {
+            count = count || '-';
+            if (count === '-') {
+                cellStyle = ' class="disabled-cell"';
+            }
         }
-        
-        if (absenceType === 'time-off' && !hasHoliday) {
-            const daysLeft = accrued + extra - count;
-            const color = getCellColor(daysLeft, today, yearEnd);
-            cellStyle = color ? ` style="background-color: ${color}"` : '';
-        } else if (absenceType === 'holiday') {
-            const daysLeft = accrued - count;
-            const color = getCellColor(daysLeft, today, yearEnd);
-            cellStyle = color ? ` style="background-color: ${color}"` : '';
-        } else if (absenceType === 'extra-holiday') {
-            const daysLeft = extra - count;
-            const color = getCellColor(daysLeft, today, augEnd, true);
-            cellStyle = color ? ` style="background-color: ${color}"` : '';
-        }
-        
+
         return `<td${cellStyle}>${count}</td>`;
     }).join('');
 }
