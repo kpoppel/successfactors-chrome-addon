@@ -182,7 +182,8 @@ def generate_absence_stats_html(today):
         has_holiday = 'holiday' in data['types'] or 'extra-holiday' in data['types']
         has_vacation = 'vacation' in data['types']
         has_time_off = 'time-off' in data['types']
-        
+        total_days = round(accrued + extra, 2);
+
         if has_holiday:    # DK fields
             accrued_remaining = accrued - data['types'].get('holiday', 0)
             extra_remaining = extra - data['types'].get('extra-holiday', 0)
@@ -198,7 +199,7 @@ def generate_absence_stats_html(today):
         html_content += f'''<tr class='{team_class}'>
             <td>{name}</td>
             <td>{data['team']}</td>
-            <td data-remaining="{remaining_days}" data-total="{remaining_days}">{remaining_days}</td>'''
+            <td data-remaining="{remaining_days}" data-total="{total_days}">{remaining_days}</td>'''
         
         for absence_type in all_types:
             cell_style = ''
