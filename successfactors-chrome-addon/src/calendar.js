@@ -1,5 +1,8 @@
 import { imageToBase64, parseDate, getDateRange, downloadFile } from './common.js';
 
+// Set default locale for date handling
+Intl.DateTimeFormat.defaultLocale = 'en-GB';
+
 function generateMonthHeaders(startDate, endDate) {
     let headers = '';
     let currentDate = new Date(startDate);
@@ -10,7 +13,7 @@ function generateMonthHeaders(startDate, endDate) {
         if (currentDate.getMonth() !== month) {
             // Invert the even/odd logic by using (month + 1) % 2
             const monthClass = (month + 1) % 2 === 0 ? 'even-month-header' : '';
-            headers += `<th class="sticky sticky-top ${monthClass}" colspan="${colspan}" data-original-colspan="${colspan}">${new Date(1900, month, 1).toLocaleString('default', { month: 'long' })}</th>`;
+            headers += `<th class="sticky sticky-top ${monthClass}" colspan="${colspan}" data-original-colspan="${colspan}">${new Date(1900, month, 1).toLocaleString('en-GB', { month: 'long' })}</th>`;
             month = currentDate.getMonth();
             colspan = 0;
         }
@@ -19,7 +22,7 @@ function generateMonthHeaders(startDate, endDate) {
     }
     // Invert the even/odd logic here as well
     const monthClass = (month + 1) % 2 === 0 ? 'even-month-header' : '';
-    headers += `<th class="sticky sticky-top ${monthClass}" colspan="${colspan}" data-original-colspan="${colspan}">${new Date(1900, month, 1).toLocaleString('default', { month: 'long' })}</th>`;
+    headers += `<th class="sticky sticky-top ${monthClass}" colspan="${colspan}" data-original-colspan="${colspan}">${new Date(1900, month, 1).toLocaleString('en-GB', { month: 'long' })}</th>`;
     return headers;
 }
 
@@ -185,7 +188,7 @@ function generatePersonRows(teams, data, startDate, endDate) {
 
 async function generateCalendarHtml(absenceData, teams) {
     const { startDate, endDate } = getDateRange(absenceData.d.results);
-    const dateRangeTitle = `${startDate.toLocaleString('default', { month: 'long', year: 'numeric' })} - ${endDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+    const dateRangeTitle = `${startDate.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} - ${endDate.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`;
     const cakeEmojiBase64 = await imageToBase64('images/cake_emoji.png');
 
     // Load template
