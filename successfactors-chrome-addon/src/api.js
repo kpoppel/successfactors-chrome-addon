@@ -1,28 +1,63 @@
 import { downloadFile } from './common.js';
 
+// Debug flag - set to true to use local test data instead of API calls
+const DEBUG_MODE = false;
+
 /**
  * Fetches raw data from SuccessFactors API for multiple users
  */
 export async function fetchRawData(initial_userid, more_userids, from_date, to_date, token, jsessionid) {
-    // Run the initial query
-    const initialData = await runQuery(initial_userid, from_date, to_date, true, token, jsessionid);
+    let finalData;
+    
+    if (DEBUG_MODE) {
+        finalData = await loadDebugData();
+    } else {
+        // Run the initial query
+        const initialData = await runQuery(initial_userid, from_date, to_date, true, token, jsessionid);
+        let concatenatedResults = initialData.d.results;
 
-    // Initialize concatenated results
-    let concatenatedResults = initialData.d.results;
-
-    // Query additional user IDs
-    if (Array.isArray(more_userids)) {
-        for (const userid of more_userids) {
-            const userData = await runQuery(userid, from_date, to_date, false, token, jsessionid);
-            concatenatedResults = concatenatedResults.concat(userData.d.results);
+        // Query additional user IDs
+        if (Array.isArray(more_userids)) {
+            for (const userid of more_userids) {
+                const userData = await runQuery(userid, from_date, to_date, false, token, jsessionid);
+                concatenatedResults = concatenatedResults.concat(userData.d.results);
+            }
         }
+        finalData = { d: { results: concatenatedResults } };
     }
-
-    // Create the final data object
-    const finalData = { d: { results: concatenatedResults } };
 
     // Store the data in local storage
     chrome.storage.local.set({ absence_data: finalData }, function () {});
+}
+
+async function loadDebugData() {
+    return new Promise((resolve, reject) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) {
+                reject(new Error('No file selected'));
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = event => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    resolve(data);
+                } catch (error) {
+                    reject(new Error('Invalid JSON file'));
+                }
+            };
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsText(file);
+        };
+
+        input.click();
+    });
 }
 
 function encodeURIComponentExtended(str) {
