@@ -1,0 +1,19 @@
+database:
+  people:
+    - name: ""
+      birthday: ""
+      title: ""
+      external: true|false
+      team_name: ""
+      virtual_team: []
+      legal_manager: ""
+      functional_manager: ""
+      carry_over_holidays: 0
+      site: LY|ERL
+  teams:
+    - name: ""
+      product_owner: ""
+      functional_manager: ""
+  projects:
+    - name: ""
+      project_lead: ""
