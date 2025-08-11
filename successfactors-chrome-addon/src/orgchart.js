@@ -1,29 +1,32 @@
-import { imageToBase64, downloadFile } from './common.js';
+import { imageToBase64, downloadFile, getDatabase } from './common.js';
 
-export async function generateOrgChartAndDownload(absenceData) {
-    const teamsResponse = await fetch(chrome.runtime.getURL('config/teams.yaml'));
-    const orgResponse = await fetch(chrome.runtime.getURL('config/organisation.yaml'));
-    const teams = jsyaml.load(await teamsResponse.text());
-    const organisation = jsyaml.load(await orgResponse.text());
-
-    const chartHtml = await generateOrgChartHtml(absenceData, teams.teams, organisation.organisation);
+export async function generateOrgChartAndDownload() {
+    console.log('generateOrgChartAndDownload() called');
+    // Get the database instance which already contains all the necessary data
+    const database = await getDatabase();
+    console.log('Generating organization chart with database - people count:', database.people.size);
+    
+    const chartHtml = await generateOrgChartHtml(database);
     downloadFile(chartHtml, 'org_chart.html', 'text/html');
 }
 
-async function generateOrgChartHtml(absenceData, teams, organisation) {
+export async function generateOrgChartHtml(database) {
     const silhouetteBase64 = await imageToBase64('images/silhouette.jpg');
     const userImages = new Map();
     userImages.set('fallback', silhouetteBase64);
 
+    // Load images for all people in the database
     await Promise.all(
-        absenceData.d.results.map(async result => {
-            if (result.userId) {
+        Array.from(database.people.values()).map(async person => {
+            if (
+                person.userId && !person.userId.startsWith('ext_')
+            ) {
                 try {
-                    const image_data = await imageToBase64('config/img/' + result.userId + '.jpg');
-                    userImages.set(result.userId, image_data);
+                    const image_data = await imageToBase64('config/img/' + person.userId + '.jpg');
+                    userImages.set(person.userId, image_data);
                 } catch (error) {
-                    console.log(`Failed to load image for user ${result.userId}, using fallback`);
-                    userImages.set(result.userId, silhouetteBase64);
+                    console.log(`Failed to load image for user ${person.userId}, using fallback`);
+                    userImages.set(person.userId, silhouetteBase64);
                 }
             }
         })
@@ -39,6 +42,10 @@ async function generateOrgChartHtml(absenceData, teams, organisation) {
         body { font-family: Arial, sans-serif; }
         .team { border: 5px solid #272a91; padding: 10px; margin-bottom: 20px; border-radius: 10px; display: flex; flex-wrap: wrap; align-items: flex-start; position: relative; width: fit-content; }
         .team h2 { color: #4CAF50; margin: 0; padding: 0 10px; font-size: 18px; position: absolute; top: -15px; left: 20px; background: white; }
+        .projects-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: flex-start; }
+        .project { border: 5px solid #ff6b35; padding: 10px; margin-bottom: 20px; border-radius: 10px; display: flex; flex-wrap: wrap; align-items: flex-start; position: relative; width: fit-content; min-width: 300px; flex: 0 1 auto; }
+        .project h2 { color: #ff6b35; margin: 0; padding: 0 10px; font-size: 18px; position: absolute; top: -15px; left: 20px; background: white; white-space: nowrap; }
+        .project h2::before { content: "🚀 PROJECT: "; font-size: 14px; }
         .details-container { display: flex; flex-direction: column; margin-right: 20px; }
         .details { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
         .details img { width: 50px; height: 50px; object-fit: cover; border-radius: 50%; margin-bottom: 5px; }
@@ -52,68 +59,53 @@ async function generateOrgChartHtml(absenceData, teams, organisation) {
 </head>
 <body>
     <h1>Organization Chart</h1>
-    ${generateTeamBlocks(organisation, teams, absenceData, userImages)}
+    <h2>Teams</h2>
+    ${generateTeamBlocks(database, userImages)}
+    <h2>Projects</h2>
+    <div class="projects-container">
+        ${generateProjectBlocks(database, userImages)}
+    </div>
 </body>
 </html>`;
 }
 
-function generateTeamBlocks(organisation, teams, absenceData, userImages) {
-    const teamMap = new Map();
-    
-    // Process each team's members
-    teams.forEach(team => {
-        // Find the corresponding org entry for this team
-        const orgTeam = organisation.find(org => org.team === team.name);
-        
-        // Get leadership roles for THIS team only
-        const teamLeadership = new Set([
-            orgTeam?.product_owner,
-            orgTeam?.line_manager,
-            orgTeam?.project_lead
-        ].filter(Boolean)); // Remove undefined values
-
-        const resolvedMembers = team.members
-            .map(member => {
-                if (member.also) {
-                    const resolvedMember = teams.flatMap(t => t.members).find(m => m.name === member.also);
-                    if (resolvedMember) return resolvedMember;
-                }
-                return member;
-            })
-            .filter(member => member.name && !teamLeadership.has(member.name));
-
-        teamMap.set(team.name, resolvedMembers);
-    });
-
-    return organisation.map(team => `
-        <div class="team">
-            <h2>${team.team}</h2>
-            <div class="details-container">
-                ${generateTeamLeadership(team, absenceData, userImages)}
+function generateTeamBlocks(database, userImages) {
+    return Array.from(database.teams.values())
+        .filter(team => team.members.size > 0) // Only show teams with members
+        .map(team => `
+            <div class="team">
+                <h2>${team.name}</h2>
+                <div class="details-container">
+                    ${generateTeamLeadership(team, database, userImages)}
+                </div>
+                <div class="member-container">
+                    ${generateTeamMembers(team, database, userImages)}
+                </div>
             </div>
-            <div class="member-container">
-                ${generateTeamMembers(team, teamMap, absenceData, userImages)}
-            </div>
-        </div>
-    `).join('');
+        `).join('');
 }
 
-function generateTeamLeadership(team, absenceData, userImages) {
+function generateTeamLeadership(team, database, userImages) {
     let leadership = '';
     
+    console.log(`Generating leadership for team: ${team.name}`);
+    
+    // Check if team has functional_manager
+    if (team.functional_manager) {
+        const functionalManager = database.people.get(team.functional_manager);
+        if (functionalManager) {
+            leadership += generatePositionHtml(functionalManager.userId, team.functional_manager, 'Functional Manager', userImages);
+            console.log(`Team ${team.name}: Added functional manager ${team.functional_manager} to leadership`);
+        }
+    }
+    
+    // Check if team has product_owner
     if (team.product_owner) {
-        const poUserId = absenceData.d.results.find(r => r.username === team.product_owner)?.userId;
-        leadership += generatePositionHtml(poUserId, team.product_owner, 'Product Owner', userImages);
-    }
-    
-    if (team.line_manager) {
-        const lmUserId = absenceData.d.results.find(r => r.username === team.line_manager)?.userId;
-        leadership += generatePositionHtml(lmUserId, team.line_manager, 'Line Manager', userImages);
-    }
-    
-    if (team.project_lead) {
-        const plUserId = absenceData.d.results.find(r => r.username === team.project_lead)?.userId;
-        leadership += generatePositionHtml(plUserId, team.project_lead, 'Project Lead', userImages);
+        const productOwner = database.people.get(team.product_owner);
+        if (productOwner) {
+            leadership += generatePositionHtml(productOwner.userId, team.product_owner, 'Product Owner', userImages);
+            console.log(`Team ${team.name}: Added product owner ${team.product_owner} to leadership`);
+        }
     }
     
     return leadership;
@@ -128,20 +120,62 @@ function generatePositionHtml(userId, name, position, userImages) {
         </div>`;
 }
 
-function generateTeamMembers(team, teamMap, absenceData, userImages) {
-    const members = teamMap.get(team.team);
-    if (!members) return '';
+function generateTeamMembers(team, database, userImages) {
+    // Get leadership roles for this team to exclude them from regular members
+    const teamLeadership = new Set();
+    if (team.functional_manager) teamLeadership.add(team.functional_manager);
+    if (team.product_owner) teamLeadership.add(team.product_owner);
 
-    return members
-        .filter(member => member.name)
-        .map(member => {
-            const userId = absenceData.d.results.find(r => r.username === member.name)?.userId;
+    console.log(`Team ${team.name}: Excluding ${teamLeadership.size} people from regular members:`, Array.from(teamLeadership));
+    console.log(`Team ${team.name}: Total team members:`, team.members.size);
+
+    // Filter out leadership roles from regular members
+    const regularMembers = Array.from(team.members)
+        .filter(memberName => !teamLeadership.has(memberName))
+        .map(memberName => database.people.get(memberName))
+        .filter(person => person); // Remove any undefined entries
+
+    console.log(`Team ${team.name}: Regular members to display:`, regularMembers.length, regularMembers.map(p => p.name));
+
+    return regularMembers
+        .map(person => {
             return `
                 <div class="member">
-                    <img src="${userId && userImages.get(userId) || userImages.get('fallback')}" alt="${member.name}">
-                    <div class="name">${member.name}</div>
-                    <div class="title">${member.title || ''}</div>
+                    <img src="${person.userId && userImages.get(person.userId) || userImages.get('fallback')}" alt="${person.name}">
+                    <div class="name">${person.name}</div>
+                    <div class="title">${person.title || ''}</div>
                 </div>`;
         })
         .join('');
+}
+
+function generateProjectBlocks(database, userImages) {
+    return database.projects
+        .map(project => `
+            <div class="project">
+                <h2>${project.name}</h2>
+                <div class="details-container">
+                    ${generateProjectLeadership(project, database, userImages)}
+                </div>
+                <div class="member-container">
+                    <!-- Projects have no regular members, only project leads -->
+                </div>
+            </div>
+        `).join('');
+}
+
+function generateProjectLeadership(project, database, userImages) {
+    console.log(`Generating leadership for project: ${project.name}`);
+    
+    // Projects only have project leads as defined in the database
+    if (project.project_lead) {
+        const projectLead = database.people.get(project.project_lead);
+        if (projectLead) {
+            console.log(`Project ${project.name}: Added project lead ${project.project_lead} to leadership`);
+            return generatePositionHtml(projectLead.userId, project.project_lead, 'Project Lead', userImages);
+        }
+    }
+    
+    console.log(`Project ${project.name}: No project lead found`);
+    return '';
 }

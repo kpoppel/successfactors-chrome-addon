@@ -1,4 +1,4 @@
-import { downloadFile } from './common.js';
+import { downloadFile, getDatabase } from './common.js';
 
 const COLORS = {
     ABOVE: '#e6b3ff',  // purple - for negative balance
@@ -8,12 +8,12 @@ const COLORS = {
 };
 
 class AbsenceCalculator {
-    constructor(teams, absenceData) {
+    constructor(database) {
         this.today = new Date();
         this.monthsPassed = this._calculateMonthsPassed();
         [this.accrued_dk, this.extra_dk] = this._calculateAccruedTimeDK();
         this.accrued_de = this._calculateAccruedTimeDE();
-        [this.stats, this.allTypesSet] = this._calculateAbsences(teams, absenceData);
+        [this.stats, this.allTypesSet] = this._calculateAbsences(database);
         
         // Calculate dates once
         this.yearEnd = new Date(Date.UTC(this.today.getUTCFullYear(), 11, 31));
@@ -45,30 +45,29 @@ class AbsenceCalculator {
         return accrued_de;      
     }
 
-    _calculateAbsences(teams, data) {
+    _calculateAbsences(database) {
         const stats = {};
         const allTypesSet = new Set();
         
-        teams.forEach(team => {
-            team.members.forEach(member => {
-                if (!member.name) return;
-                
-                const userData = data.find(item => item.username === member.name);
-                if (!userData || !userData.employeeTimeNav) return;
+        // Process each person in the database who has employee time data
+        for (const person of database.people.values()) {
+            // Skip people without team assignment or employee time data
+            if (!person.team_name || !person.employeeTime || !Array.isArray(person.employeeTime)) {
+                continue;
+            }
 
-                stats[member.name] = {
-                    team: team.name,
-                    types: {}
-                };
+            stats[person.name] = {
+                team: person.team_name,
+                types: {}
+            };
 
-                userData.employeeTimeNav.results.forEach(absence => {
-                    const timeType = absence.timeTypeName?.toLowerCase().replace(' ', '-') || 'Unknown';
-                    const daysSpent = parseFloat(absence.quantityInDays || 0);
-                    stats[member.name].types[timeType] = (stats[member.name].types[timeType] || 0) + daysSpent;
-                    allTypesSet.add(timeType);
-                });
+            person.employeeTime.forEach(absence => {
+                const timeType = absence.timeTypeName?.toLowerCase().replace(' ', '-') || 'Unknown';
+                const daysSpent = parseFloat(absence.quantityInDays || 0);
+                stats[person.name].types[timeType] = (stats[person.name].types[timeType] || 0) + daysSpent;
+                allTypesSet.add(timeType);
             });
-        });
+        }
         
         return [stats, allTypesSet];
     }
@@ -267,11 +266,13 @@ class AbsenceHtmlGenerator {
     }
 }
 
-export async function generateAbsenceAndDownload(absenceData) {
-    const teamsResponse = await fetch(chrome.runtime.getURL('config/teams.yaml'));
-    const teams = jsyaml.load(await teamsResponse.text());
+export async function generateAbsenceAndDownload() {
+    console.log('generateAbsenceAndDownload() called');
+    // Get the database instance which already contains all the necessary data
+    const database = await getDatabase();
+    console.log('Generating absence stats with database - people count:', database.people.size);
 
-    const calculator = new AbsenceCalculator(teams.teams, absenceData.d.results);
+    const calculator = new AbsenceCalculator(database);
     const htmlGenerator = new AbsenceHtmlGenerator(calculator);
 
     console.log("Accrued time DK:", calculator.accrued_dk, "Extra time DK:", calculator.extra_dk, "Accrued time DE:", calculator.accrued_de);

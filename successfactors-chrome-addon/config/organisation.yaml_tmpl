@@ -1,8 +1,0 @@
----
-updated: <Put a timestamp: 2024-04-14T15:33>
-organisation:
-    - team: "Team 1"
-      product_owner: "Mr. PO master"
-      line_manager: "Mrs. Line Manager"
-    - team: "Project X"
-      project_lead: "Project X Lead"

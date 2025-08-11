@@ -1,4 +1,30 @@
-import { imageToBase64, parseDate, getDateRange, downloadFile } from './common.js';
+import { imageToBase64, parseDate, downloadFile, getDatabase } from './common.js';
+
+function getDateRangeFromDatabase(database) {
+    const dates = [];
+    for (const person of database.people.values()) {
+        if (person.nonWorkingDates) {
+            dates.push(...person.nonWorkingDates.map(d => new Date(d.date)));
+        }
+        if (person.holidays) {
+            dates.push(...person.holidays.map(d => new Date(d.date)));
+        }
+    }
+    
+    if (dates.length === 0) {
+        // Fallback to current year if no data
+        const currentYear = new Date().getFullYear();
+        return {
+            startDate: new Date(currentYear, 0, 1),
+            endDate: new Date(currentYear, 11, 31)
+        };
+    }
+    
+    return {
+        startDate: new Date(Math.min(...dates)),
+        endDate: new Date(Math.max(...dates))
+    };
+}
 
 function generateMonthHeaders(startDate, endDate) {
     let headers = '';
@@ -78,133 +104,121 @@ function generateDateHeaders(startDate, endDate) {
     return headers;
 }
 
-function generateTeamFilters(teams) {
+function generateTeamFilters(database) {
     let filters = "";
-    for (const team of teams) {
-        filters += `<div class='collapsible' onclick="filterTeam('${team.name.replace(' ', '_')}')">${team.name}</div>`;
+    for (const team of database.teams.values()) {
+        filters += `<div class='collapsible toggle-button' style='display: block; padding: 5px 15px; cursor: pointer; background-color: #f0f0f0; color: #333; border-radius: 3px; margin: 2px 0;'>${team.name}</div>`;
     }
     return filters;
 }
 
-function generatePersonRows(teams, data, startDate, endDate) {
+function generatePersonRows(database, startDate, endDate) {
     let rows = "";
-    // Create a mapping of members to all teams they belong to
-    const memberToTeams = new Map();
-    teams.forEach(team => {
-        team.members.forEach(member => {
-            if (member.name) {
-                if (!memberToTeams.has(member.name)) {
-                    memberToTeams.set(member.name, new Set());
-                }
-                memberToTeams.get(member.name).add(team.name.replace(' ', '_'));
-            }
-            if (member.also) {
-                const alsoNames = Array.isArray(member.also) ? member.also : [member.also];
-                alsoNames.forEach(alsoName => {
-                    if (!memberToTeams.has(alsoName)) {
-                        memberToTeams.set(alsoName, new Set());
-                    }
-                    memberToTeams.get(alsoName).add(team.name.replace(' ', '_'));
-                });
-            }
-        });
-    });
+    
+    // Process each person in the database
+    for (const person of database.people.values()) {
+        // Skip people without team assignment or holiday data
+        if (!person.team_name || (!person.holidays && !person.nonWorkingDates)) {
+            continue;
+        }
 
-    teams.forEach(team => {
-        team.members.forEach(member => {
-            if (!member.name) return;
+        // Get all teams this person belongs to (including virtual teams)
+        const teamClasses = [];
+        if (person.team_name) {
+            teamClasses.push(person.team_name.replace(' ', '_'));
+        }
+        if (person.virtual_team && Array.isArray(person.virtual_team)) {
+            person.virtual_team.forEach(teamName => {
+                teamClasses.push(teamName.replace(' ', '_'));
+            });
+        }
+
+        // Precompute absences and date-specific data
+        const nonWorkingDates = new Set((person.nonWorkingDates || []).map(d => d.date));
+        const holidays = new Set((person.holidays || []).map(d => d.date));
+        const absences = new Set();
+        const pendingApproval = new Set();
+        const pendingCancellation = new Set();
+
+        if (person.employeeTime && Array.isArray(person.employeeTime)) {
+            person.employeeTime.forEach(absence => {
+                const start = parseDate(absence.startDate);
+                const end = parseDate(absence.endDate);
+                if (!start || !end) return;
+
+                // Create dates using UTC to avoid timezone offset issues
+                const utcStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+                const utcEnd = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+
+                const currentDate = new Date(Date.UTC(utcStart.getUTCFullYear(), utcStart.getUTCMonth(), utcStart.getUTCDate()));
+                while (currentDate <= utcEnd) {
+                    const dateStr = currentDate.toISOString().split('T')[0];
+                    if (absence.approvalStatus === 'APPROVED') {
+                        absences.add(dateStr);
+                    } else if (absence.approvalStatus === 'PENDING') {
+                        pendingApproval.add(dateStr);
+                    } else if (absence.approvalStatus === 'PENDING_CANCELLATION') {
+                        pendingCancellation.add(dateStr);
+                    }
+                    currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+                }
+            });
+        }
+
+        // Generate row start with birthday info
+        const birthday = person.birthday ? new Date(person.birthday) : null;
+        const teamClassesStr = teamClasses.join(' ');
+        rows += birthday ? 
+            `<tr class='${teamClassesStr}' data-birthday-month='${birthday.getMonth() + 1}'><td class='sticky sticky-left'>${person.name}</td>` :
+            `<tr class='${teamClassesStr}'><td class='sticky sticky-left'>${person.name}</td>`;
+
+        // Generate date cells
+        const currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+            // Use UTC methods to avoid DST issues
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const classes = [];
             
-            const userData = data.find(item => item.username === member.name);
-            if (!userData) return;
+            if (nonWorkingDates.has(dateStr)) classes.push('non-working');
+            else if (holidays.has(dateStr) || absences.has(dateStr)) classes.push('absence');
+            else if (pendingApproval.has(dateStr)) classes.push('absence_planned');
+            else if (pendingCancellation.has(dateStr)) classes.push('absence_cancelled');
 
-            // Precompute absences and date-specific data
-            const nonWorkingDates = new Set(JSON.parse(userData.nonWorkingDates).map(d => d.date));
-            const holidays = new Set(JSON.parse(userData.holidays).map(d => d.date));
-            const absences = new Set();
-            const pendingApproval = new Set();
-            const pendingCancellation = new Set();
-
-            if (userData.employeeTimeNav) {
-                userData.employeeTimeNav.results.forEach(absence => {
-                    const start = parseDate(absence.startDate);
-                    const end = parseDate(absence.endDate);
-                    if (!start || !end) return;
-
-                    // Create dates using UTC to avoid timezone offset issues
-                    const utcStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-                    const utcEnd = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
-
-                    const currentDate = new Date(Date.UTC(utcStart.getUTCFullYear(), utcStart.getUTCMonth(), utcStart.getUTCDate()));
-                    while (currentDate <= utcEnd) {
-                        const dateStr = currentDate.toISOString().split('T')[0];
-                        if (absence.approvalStatus === 'APPROVED') {
-                            absences.add(dateStr);
-                        } else if (absence.approvalStatus === 'PENDING') {
-                            pendingApproval.add(dateStr);
-                        } else if (absence.approvalStatus === 'PENDING_CANCELLATION') {
-                            pendingCancellation.add(dateStr);
-                        }
-                        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-                    }
-                });
+            if (birthday && 
+                currentDate.getUTCMonth() === birthday.getUTCMonth() && 
+                currentDate.getUTCDate() === birthday.getUTCDate()) {
+                classes.push('birthday');
             }
+            if ((currentDate.getUTCMonth() + 1) % 2 === 0) classes.push('even-month');
 
-            // Generate row start with birthday info
-            const birthday = member.birthday ? new Date(member.birthday) : null;
-            const teamClasses = Array.from(memberToTeams.get(member.name)).join(' ');
-            rows += birthday ? 
-                `<tr class='${teamClasses}' data-birthday-month='${birthday.getMonth() + 1}'><td class='sticky sticky-left'>${member.name}</td>` :
-                `<tr class='${teamClasses}'><td class='sticky sticky-left'>${member.name}</td>`;
+            const classString = classes.length ? ` class='${classes.join(' ')}'` : '';
+            rows += `<td${classString} data-date="${dateStr}"></td>`;
 
-            // Generate date cells
-            const currentDate = new Date(startDate);
-            while (currentDate <= endDate) {
-                // Use UTC methods to avoid DST issues
-                const dateStr = currentDate.toISOString().split('T')[0];
-                const classes = [];
-                
-                if (nonWorkingDates.has(dateStr)) classes.push('non-working');
-                else if (holidays.has(dateStr) || absences.has(dateStr)) classes.push('absence');
-                else if (pendingApproval.has(dateStr)) classes.push('absence_planned');
-                else if (pendingCancellation.has(dateStr)) classes.push('absence_cancelled');
-
-                if (birthday && 
-                    currentDate.getUTCMonth() === birthday.getUTCMonth() && 
-                    currentDate.getUTCDate() === birthday.getUTCDate()) {
-                    classes.push('birthday');
-                }
-                if ((currentDate.getUTCMonth() + 1) % 2 === 0) classes.push('even-month');
-
-                const classString = classes.length ? ` class='${classes.join(' ')}'` : '';
-                rows += `<td${classString} data-date="${dateStr}"></td>`;
-
-                // Use UTC methods to increment the date
-                currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-            }
-            rows += "</tr>";
-        });
-    });
+            // Use UTC methods to increment the date
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+        }
+        rows += "</tr>";
+    }
     return rows;
 }
 
-async function generateCalendarHtml(absenceData, teams) {
-    const { startDate, endDate } = getDateRange(absenceData.d.results);
+// Export version for browser extension UI (returns just the calendar content without full HTML structure)
+export async function generateCalendarHtml(database, cakeEmojiBase64) {
+    const { startDate, endDate } = getDateRangeFromDatabase(database);
     const dateRangeTitle = `${startDate.toLocaleString('default', { month: 'long', year: 'numeric' })} - ${endDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
-    const cakeEmojiBase64 = await imageToBase64('images/cake_emoji.png');
 
-    // Load template
-    const templateResponse = await fetch(chrome.runtime.getURL('templates/calendar.html'));
+    // Load content-only template (just the calendar content, no HTML document structure)
+    const templateResponse = await fetch(chrome.runtime.getURL('templates/calendar-content.html'));
     let template = await templateResponse.text();
 
     // Replace placeholders
     const replacements = {
         '{{dateRangeTitle}}': dateRangeTitle,
-        '{{teamFilters}}': generateTeamFilters(teams),
+        '{{teamFilters}}': generateTeamFilters(database),
         '{{monthHeaders}}': generateMonthHeaders(startDate, endDate),
         '{{weekHeaders}}': generateWeekHeaders(startDate, endDate),
         '{{dateHeaders}}': generateDateHeaders(startDate, endDate),
-        '{{personRows}}': generatePersonRows(teams, absenceData.d.results, startDate, endDate),
-        '{{cakeEmoji}}': cakeEmojiBase64
+        '{{personRows}}': generatePersonRows(database, startDate, endDate)
     };
 
     for (const [placeholder, value] of Object.entries(replacements)) {
@@ -214,13 +228,72 @@ async function generateCalendarHtml(absenceData, teams) {
     return template;
 }
 
-export async function generateCalendarAndDownload(absenceData) {
-    // Fetch team data from the extension's config files
-    const teamsResponse = await fetch(chrome.runtime.getURL('config/teams.yaml'));
-    const teams = jsyaml.load(await teamsResponse.text());
+// Internal version for download functionality
+async function generateCalendarHtmlForDownload(database) {
+    const { startDate, endDate } = getDateRangeFromDatabase(database);
+    const dateRangeTitle = `${startDate.toLocaleString('default', { month: 'long', year: 'numeric' })} - ${endDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+    const cakeEmojiBase64 = await imageToBase64('images/cake_emoji.png');
 
-    // Generate the calendar HTML
-    const htmlContent = await generateCalendarHtml(absenceData, teams.teams);
+    // Read the CalendarEventHandler source code to inline it
+    const calendarEventsResponse = await fetch(chrome.runtime.getURL('src/calendar-events.js'));
+    const calendarEventsCode = await calendarEventsResponse.text();
+    
+    // Extract just the class definition and helper functions, remove export and module-specific code
+    const classCode = calendarEventsCode
+        .replace(/export\s+class\s+CalendarEventHandler/g, 'class CalendarEventHandler')
+        .replace(/export\s*{[^}]*};?/g, '')
+        .replace(/import\s+{[^}]*}\s+from\s+['"][^'"]*['"];?/g, '')
+        .replace(/\/\/ For standalone HTML usage[\s\S]*$/, ''); // Remove the standalone compatibility code at the end
+
+    // Read the CSS file to inline it
+    const cssResponse = await fetch(chrome.runtime.getURL('styles/calendar.css'));
+    const cssContent = await cssResponse.text();
+
+    // Read the calendar content template and process its placeholders
+    const contentResponse = await fetch(chrome.runtime.getURL('templates/calendar-content.html'));
+    let contentTemplate = await contentResponse.text();
+    
+    // Replace placeholders in the content template
+    const contentReplacements = {
+        '{{dateRangeTitle}}': dateRangeTitle,
+        '{{teamFilters}}': generateTeamFilters(database),
+        '{{monthHeaders}}': generateMonthHeaders(startDate, endDate),
+        '{{weekHeaders}}': generateWeekHeaders(startDate, endDate),
+        '{{dateHeaders}}': generateDateHeaders(startDate, endDate),
+        '{{personRows}}': generatePersonRows(database, startDate, endDate)
+    };
+
+    for (const [placeholder, value] of Object.entries(contentReplacements)) {
+        contentTemplate = contentTemplate.replace(placeholder, value);
+    }
+
+    // Load standalone template (with placeholder for embedded content, JavaScript and CSS)
+    const templateResponse = await fetch(chrome.runtime.getURL('templates/calendar-standalone.html'));
+    let template = await templateResponse.text();
+
+    // Replace placeholders in the standalone template
+    const replacements = {
+        '{{calendarContent}}': contentTemplate,
+        '{{cakeEmoji}}': cakeEmojiBase64,
+        '{{calendarEventHandlerCode}}': classCode,
+        '{{calendarCSS}}': cssContent
+    };
+
+    for (const [placeholder, value] of Object.entries(replacements)) {
+        template = template.replace(placeholder, value);
+    }
+
+    return template;
+}
+
+export async function generateCalendarAndDownload() {
+    console.log('generateCalendarAndDownload() called');
+    // Get the database instance which already contains all the necessary data
+    const database = await getDatabase();
+    console.log('Generating calendar with database - people count:', database.people.size);
+
+    // Generate the calendar HTML using the database
+    const htmlContent = await generateCalendarHtmlForDownload(database);
 
     // Compress the HTML content using pako
     const compressed = pako.gzip(htmlContent);

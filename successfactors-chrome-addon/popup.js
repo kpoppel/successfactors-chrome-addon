@@ -5,10 +5,11 @@ import { generateAbsenceAndDownload } from './src/absence.js';
 import { generateIcsAndDownload } from './src/ics.js';
 import { generateOrgChartAndDownload } from './src/orgchart.js';
 import { setupUI } from './src/ui.js';
-import { showNotification, loadConfig, getConfig } from './src/common.js';
+import { showNotification, loadConfig, getConfig, loadDatabase } from './src/common.js';
 
 // Initialise configuration
 await loadConfig();
+await loadDatabase();
 
 // Initialise UI
 setupUI();
@@ -41,28 +42,28 @@ const buttonHandlers = {
     'fetch-calendar-button': async (response) => {
         if (response) {
             console.log("Response from background.js:", response);
-            generateCalendarAndDownload(response.absence_data);
+            generateCalendarAndDownload();
             showNotification(true, "Calendar download completed.");
         }
     },
     'fetch-ics-button': async (response) => {
         if (response) {
             console.log("Response from background.js:", response);
-            generateIcsAndDownload(response.absence_data);
+            generateIcsAndDownload();
             showNotification(true, "ICS download completed.");
         }
     },
     'fetch-absence-button': async (response) => {
         if (response) {
             console.log("Response from background.js:", response);
-            generateAbsenceAndDownload(response.absence_data);
+            generateAbsenceAndDownload();
             showNotification(true, "Absence Statistics download completed.");
         }
     },
     'fetch-org-chart-button': async (response) => {
         if (response) {
             console.log("Response from background.js:", response);
-            generateOrgChartAndDownload(response.absence_data);
+            generateOrgChartAndDownload();
             showNotification(true, "OrgChart download completed.");
         }
     }

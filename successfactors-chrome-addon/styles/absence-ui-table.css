@@ -1,0 +1,359 @@
+/* Absence table specific styling - based on people-ui-table.css */
+.absence-table {
+    width: auto; /* Let table size to content */
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-family: Arial, sans-serif;
+    table-layout: auto; /* Auto layout for content-based sizing */
+}
+
+.absence-table thead tr {
+    background-color: #f5f5f5;
+}
+
+.absence-table th {
+    padding: 12px 8px;
+    border-bottom: 2px solid #ddd;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap; /* Prevent header text wrapping */
+}
+
+.absence-table td {
+    padding: 2px 4px; /* Minimal padding */
+    border-bottom: 1px solid #ddd;
+    white-space: nowrap; /* Prevent content wrapping */
+}
+
+.absence-table tr:hover {
+    background-color: #f9f9f9;
+    transition: background-color 0.2s;
+}
+
+.absence-table td.editable {
+    padding: 0; /* No padding, let input handle it */
+}
+
+.absence-table td.readonly {
+    padding: 2px 4px; /* Minimal padding consistent with regular cells */
+    color: #666;
+    background-color: #f9f9f9;
+}
+
+.absence-table select {
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    border: none;
+    background-color: transparent;
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.absence-table input {
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    border: none;
+    background-color: transparent;
+    outline: none;
+}
+
+.absence-table input:focus {
+    background-color: #fff;
+    border: 1px solid #007bff;
+    border-radius: 3px;
+}
+
+.absence-table .table-input {
+    font-size: 14px;
+}
+
+.absence-table .carry-over-input {
+    text-align: right;
+    font-weight: bold;
+}
+
+.absence-table .site-select {
+    font-weight: 500;
+    color: #333;
+}
+
+.absence-table .available-holidays {
+    display: block;
+    padding: 8px;
+    color: #2d5016;
+    font-weight: 600;
+    text-align: right;
+    background-color: #f8fff4;
+}
+
+/* Remaining holidays styling */
+.absence-table .remaining-holidays {
+    display: block;
+    padding: 8px;
+    font-weight: 600;
+    text-align: right;
+}
+
+.absence-table .special-days {
+    color: #ffc107;
+}
+
+.absence-table .standard-days {
+    color: #28a745;
+}
+
+.absence-table .separator {
+    color: #666;
+    margin: 0 2px;
+}
+
+/* LY site remaining holidays display */
+.absence-table .ly-remaining {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* Spent days styling */
+.absence-table .spent-days {
+    display: block;
+    padding: 8px;
+    text-align: right;
+    color: #666;
+    font-weight: 500;
+}
+
+.absence-table .spent-days:empty {
+    color: #ccc;
+}
+
+/* Absence type headers styling */
+.absence-table .absence-type-header {
+    min-width: 80px;
+    text-align: center;
+}
+
+.absence-table .readonly-text {
+    display: block;
+    padding: 8px;
+    color: #333;
+    font-weight: 500;
+}
+
+/* Header styling */
+.absence-table .header-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.absence-table .header-title {
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+}
+
+.absence-table .column-search {
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 12px;
+    background: white;
+}
+
+.absence-table .column-search:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+}
+
+/* Sort indicators - using CSS border triangles to match people-ui table */
+.absence-table .sort-indicator {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-left: 5px;
+}
+
+.absence-table th.sort-asc .sort-indicator {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 4px solid #333;
+}
+
+.absence-table th.sort-desc .sort-indicator {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 4px solid #333;
+}
+
+/* Button styling */
+.absence-table .table-button {
+    padding: 6px 12px;
+    margin: 4px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.absence-table .view-absence {
+    background-color: #28a745;
+    color: white;
+}
+
+.absence-table .view-absence:hover {
+    background-color: #218838;
+}
+
+/* Toggle column styling */
+.absence-table .toggle-column {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    text-align: center;
+    padding: 8px 4px !important;
+    background-color: #f8f9fa;
+}
+
+.absence-table .toggle-cell {
+    text-align: center;
+    padding: 8px 4px;
+    background-color: #f8f9fa;
+    border-left: 2px solid #dee2e6;
+    border-right: 2px solid #dee2e6;
+}
+
+.absence-table .toggle-button {
+    display: inline-block;
+    font-weight: bold;
+    font-size: 16px;
+    color: #007bff;
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.absence-table .toggle-button:hover {
+    background-color: #e7f1ff;
+    color: #0056b3;
+}
+
+/* Extra columns styling */
+.absence-table .extra-column {
+    background-color: #f8f9fa;
+    border-left: 1px solid #dee2e6;
+}
+
+.absence-table .extra-column:first-of-type {
+    border-left: 2px solid #dee2e6;
+}
+
+/* Priority columns styling */
+.absence-table .priority-column {
+    background-color: #ffffff;
+}
+
+/* Numeric content alignment */
+.absence-table td input[type="number"],
+.absence-table td .readonly-text:not(.remaining-holidays),
+.absence-table td .spent-days {
+    text-align: right;
+}
+
+.absence-table td input[type="number"] {
+    width: 100%; /* Fill the cell completely */
+    text-align: right;
+    border: none; /* Remove border to blend with cell */
+    padding: 2px 4px; /* Minimal padding */
+    background: transparent; /* Transparent background */
+    outline: none; /* Remove focus outline */
+    box-sizing: border-box; /* Include padding in width */
+}
+
+.absence-table td input[type="number"]:focus {
+    background-color: #fff; /* White background on focus */
+    border: 1px solid #007bff; /* Blue border on focus */
+}
+
+/* Site column */
+.absence-table td select.site-select {
+    width: auto;
+    min-width: 50px;
+}
+
+/* Name column - left aligned */
+.absence-table td:first-child {
+    text-align: left;
+    min-width: 120px;
+}
+
+/* Special styling for LY remaining holidays display */
+.absence-table .remaining-holidays.remaining-ly {
+    text-align: right;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.absence-table .remaining-holidays.remaining-ly .separator {
+    margin: 0 1px;
+    color: #666;
+}
+
+.absence-table .remaining-holidays.remaining-ly .special-days,
+.absence-table .remaining-holidays.remaining-ly .standard-days {
+    font-weight: bold;
+}
+
+.absence-table .remaining-holidays.remaining-ly .special-days {
+    color: #007bff;
+}
+
+.absence-table .remaining-holidays.remaining-ly .standard-days {
+    color: #28a745;
+}
+
+/* ERL remaining holidays - right aligned */
+.absence-table .remaining-holidays.remaining-erl {
+    text-align: right;
+}
+
+/* Holiday urgency highlighting */
+.absence-table td[style*="background-color"] {
+    transition: background-color 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.absence-table td[style*="background-color"]:hover {
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure tooltip is visible */
+.absence-table td[title]:hover {
+    position: relative;
+    z-index: 10;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .absence-table th,
+    .absence-table td {
+        padding: 6px 4px;
+        font-size: 14px;
+    }
+    
+    .absence-table .header-content {
+        gap: 2px;
+    }
+    
+    .absence-table .column-search {
+        font-size: 11px;
+        padding: 2px 4px;
+    }
+}

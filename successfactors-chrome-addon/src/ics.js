@@ -1,26 +1,28 @@
-import { downloadFile } from './common.js';
+import { downloadFile, getDatabase } from './common.js';
 
-export async function generateIcsAndDownload(absenceData) {
-    const teamsResponse = await fetch(chrome.runtime.getURL('config/teams.yaml'));
-    const teams = jsyaml.load(await teamsResponse.text());
+export async function generateIcsAndDownload() {
+    console.log('generateIcsAndDownload() called');
+    // Get the database instance which already contains all the necessary data
+    const database = await getDatabase();
+    console.log('Generating ICS with database - people count:', database.people.size);
 
     let calendarEvents = [];
     
-    teams.teams.forEach(team => {
-        team.members.forEach(member => {
-            if (member.birthday && member.birthday !== "") {
-                const birthday = new Date(member.birthday);
-                const currentYear = new Date().getFullYear();
-                const event = {
-                    start: new Date(Date.UTC(currentYear, birthday.getMonth(), birthday.getDate())),
-                    end: new Date(Date.UTC(currentYear, birthday.getMonth(), birthday.getDate() + 1)),
-                    summary: `${member.name}'s Birthday`,
-                };
-                calendarEvents.push(event);
-            }
-        });
-    });
+    // Process each person in the database who has a birthday
+    for (const person of database.people.values()) {
+        if (person.birthday && person.birthday !== "") {
+            const birthday = new Date(person.birthday);
+            const currentYear = new Date().getFullYear();
+            const event = {
+                start: new Date(Date.UTC(currentYear, birthday.getMonth(), birthday.getDate())),
+                end: new Date(Date.UTC(currentYear, birthday.getMonth(), birthday.getDate() + 1)),
+                summary: `${person.name}'s Birthday`,
+            };
+            calendarEvents.push(event);
+        }
+    }
 
+    console.log('Generated', calendarEvents.length, 'birthday events');
     const icsContent = generateICS(calendarEvents);
     downloadFile(icsContent, 'birthdays.ics', 'text/calendar');
 }

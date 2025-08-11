@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar View</title>
+    <style>
+        {{calendarCSS}}
+    </style>
+</head>
+<body>
+    {{calendarContent}}
+    
+    <script>
+        {{calendarEventHandlerCode}}
+        
+        // Initialize calendar when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            const eventHandler = new CalendarEventHandler(document, '{{cakeEmoji}}');
+            eventHandler.init();
+        });
+    </script>
+</body>
+</html>

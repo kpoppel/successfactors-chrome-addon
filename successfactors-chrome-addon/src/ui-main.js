@@ -8,25 +8,17 @@ import { showAbsenceTab } from './absence-ui.js';
 console.log('ui-main.js loaded');
 
 document.addEventListener('DOMContentLoaded', () => {
+    // NOTE: Sequence is important here. If there is added tabs or they are switched in sequence, update here too.
     const tabHandlers = [
         () => showPeopleTab(),
         () => showTeamTab(),
         () => showCalendarTab(),
-        () => showAbsenceTab(),
-        () => showOrgChartTab()
+        () => showOrgChartTab(),
+        () => showAbsenceTab()
     ];
 
     const switcherElement = document.querySelector('ul.uk-switcher');
-    // const tabList = document.querySelector('ul[uk-tab]');
-
     switcherElement.addEventListener('shown', (e) => {
-        // const selectedTabIndex = Array.from(tabList.children).findIndex(li => li.classList.contains('uk-active'));
-        // const selectedTabText = tabList.children[selectedTabIndex].textContent.trim();
-        // console.log('Tab changed:', { selectedTabIndex, selectedTabText });
-        // if (tabHandlers[selectedTabIndex]) {
-        //     tabHandlers[selectedTabIndex]();
-        // }
-
         const UIkitSwitcherIndex = UIkit.switcher(switcherElement).index();
         tabHandlers[UIkitSwitcherIndex]();
     });

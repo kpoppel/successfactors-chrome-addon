@@ -1,0 +1,65 @@
+<div class="table-container">
+    <table class="people-table" id="peopleTable">
+        <thead>
+            <tr>
+                <th data-column="name">
+                    <div class="header-content">
+                        <div class="header-title">Name<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="name" placeholder="Search...">
+                    </div>
+                </th>
+                <th data-column="birthday">
+                    <div class="header-content">
+                        <div class="header-title">Birthday<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="birthday" placeholder="Search...">
+                    </div>
+                </th>
+                <th data-column="title">
+                    <div class="header-content">
+                        <div class="header-title">Title<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="title" placeholder="Search...">
+                    </div>
+                </th>
+                <th data-column="team">
+                    <div class="header-content">
+                        <div class="header-title">Team(s)<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="team" placeholder="Search...">
+                    </div>
+                </th>
+                <th data-column="legal_manager">
+                    <div class="header-content">
+                        <div class="header-title">Legal Manager<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="legal_manager" placeholder="Search...">
+                    </div>
+                </th>
+                <th data-column="functional_manager">
+                    <div class="header-content">
+                        <div class="header-title">Functional Manager<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="functional_manager" placeholder="Search...">
+                    </div>
+                </th>
+                <th data-column="external">
+                    <div class="header-content">
+                        <div class="header-title">External<span class="sort-indicator"></span></div>
+                        <select class="column-search" data-column="external">
+                            <option value="">All</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                    </div>
+                </th>
+                <th data-column="virtual_team">
+                    <div class="header-content">
+                        <div class="header-title">Virtual Teams</div>
+                        <input type="text" class="column-search" data-column="virtual_team" placeholder="Search teams...">
+                    </div>
+                </th>
+                <th><button class="add-person-button" title="Add new person">➕</button></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{tableContent}}
+        </tbody>
+    </table>
+    <button class="export-button" id="exportButton">Export Database</button>
+</div>

@@ -6,12 +6,11 @@
 4. Click on the **Load unpacked** button.
 5. Select the folder where you copied the files (`successfactors_holiday_calendar`).
 6. The extension will now be installed and visible in your browser extensions list.
-7. Update the `config.yaml`, `teams.yaml`, and `organisation.yaml` files in the `config` directory.
+7. Update the `databse.yaml` file in the `config` directory.
 8. Add images for people in the `config/img/` directory.  Name each image by the userid of the person.
 
 **Tip:**
 - If you update the `config.yaml` file you need to reload the extension for this to take effect.
-- If you update the `teams.yaml` or `organisation.yaml` files they are loaded every time the download files are generated.
 - Userids can be found in the raw data.
 
 # Usage

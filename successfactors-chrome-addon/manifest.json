@@ -26,5 +26,16 @@
     "background": {
       "service_worker": "background.js",
       "type": "module"
-    }
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "styles/*.css",
+                "templates/*.html",
+                "lib/*.js",
+                "lib/*.css"
+            ],
+            "matches": ["<all_urls>"]
+        }
+    ]
 }

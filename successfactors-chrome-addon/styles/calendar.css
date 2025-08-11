@@ -1,0 +1,172 @@
+.calendar-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 80vh; /* Adjusted for tab context */
+}
+
+.calendar .header {
+    text-align: center;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+}
+
+.calendar {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.row-titles {
+    overflow-y: auto;
+    background-color: #f9f9f9;
+    border-right: 1px solid #ccc;
+    white-space: nowrap;
+    min-width: 200px;
+}
+
+.calendar-view {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+}
+
+.calendar-view table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.calendar-view th, .calendar-view td {
+    border: 1px solid #ccc;
+    padding: 5px;
+    text-align: center;
+    font-size: 12px;
+}
+
+.sticky {
+    position: sticky;
+    background-color: #fff;
+    z-index: 1;
+}
+
+.sticky-top {
+    top: 0;
+}
+
+.sticky-left {
+    left: 0;
+}
+
+.sticky-both {
+    top: 0;
+    left: 0;
+    z-index: 2;
+}
+
+thead th:first-child {
+    width: auto;
+}
+
+thead>tr:nth-child(1) th {
+    top: 0;
+}
+
+thead>tr:nth-child(2) th {
+    top: 29px;
+}
+
+thead>tr:nth-child(3) th {
+    top: 58px;
+}
+
+.collapsible {
+    cursor: pointer;
+    display: block;
+    padding: 5px 15px 5px 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.collapsible:hover {
+    background-color: #e0e0e0;
+}
+
+.hidden {
+    display: none;
+}
+
+.non-working {
+    background-color: grey !important;
+}
+
+.absence {
+    background-color: blue !important;
+    color: white;
+}
+
+.absence_planned {
+    background-color: #00ff9e !important;
+    color: white;
+}
+
+.absence_cancelled {
+    background-color: #fff2e0 !important;
+    color: white;
+}
+
+.month-alternate {
+    background-color: #f0f0f0;
+}
+
+.birthday {
+    text-align: center;
+}
+
+.even-month-header {
+    background-color: rgba(211, 211, 211, 1.0);
+}
+
+.even-month {
+    background-color: rgba(211, 211, 211, 0.5);
+}
+
+.current-date {
+    background-color: rgba(255, 191, 191, 1.0) !important;
+}
+
+tbody td:first-child {
+    width: auto;
+    position: sticky;
+    left: 0;
+    background-color: #f9f9f9;
+    z-index: 1;
+    white-space: nowrap;
+    min-width: 150px;
+}
+
+thead th[data-date], thead th[data-original-colspan] {
+    cursor: pointer;
+}
+
+thead th[data-date]:hover, thead th[data-original-colspan]:hover {
+    background-color: #3e9be7;
+}
+
+/* Specific styles for when calendar is in tab context */
+#calendar-tab .calendar-container {
+    height: calc(100vh - 200px); /* Account for header and tab navigation */
+}
+
+#calendar-tab .row-titles input {
+    width: 180px;
+    margin: 5px 10px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+#calendar-tab .row-titles label {
+    font-size: 12px;
+    margin: 5px 0;
+}

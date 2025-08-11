@@ -1,0 +1,46 @@
+<div class="table-container">
+    <table class="absence-table" id="absenceTable">
+        <thead>
+            <tr>
+                <th data-column="name">
+                    <div class="header-content">
+                        <div class="header-title">Name<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="name" placeholder="Search...">
+                    </div>
+                </th>
+                <th data-column="site">
+                    <div class="header-content">
+                        <div class="header-title">Site<span class="sort-indicator"></span></div>
+                        <select class="column-search" data-column="site">
+                            <option value="">All</option>
+                            <option value="LY">LY</option>
+                            <option value="ERL">ERL</option>
+                        </select>
+                    </div>
+                </th>
+                <th data-column="carry_over_holidays">
+                    <div class="header-content">
+                        <div class="header-title">Carry-over Holidays<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="carry_over_holidays" placeholder="Search...">
+                    </div>
+                </th>
+                <th data-column="available_holidays">
+                    <div class="header-content">
+                        <div class="header-title">Available Holidays<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="available_holidays" placeholder="Search...">
+                    </div>
+                </th>
+                <th data-column="remaining_holidays">
+                    <div class="header-content">
+                        <div class="header-title">Remaining Holidays<span class="sort-indicator"></span></div>
+                        <input type="text" class="column-search" data-column="remaining_holidays" placeholder="Search...">
+                    </div>
+                </th>
+                {{tableHeaders}}
+            </tr>
+        </thead>
+        <tbody>
+            {{tableContent}}
+        </tbody>
+    </table>
+</div>

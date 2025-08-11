@@ -1,6 +1,6 @@
 # Files never to add
-*/*/teams.yaml
-*/*/organisation.yaml
+*/*/database*.yaml
+*/*/holiday_data.json
 */*/config.yaml
 */*/img/*.jpg
 # Byte-compiled / optimized / DLL files
