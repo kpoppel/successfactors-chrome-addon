@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuccessFactors Addon - Full UI</title>
+    <link rel="stylesheet" href="lib/uikit.min.css">
+    <script src="lib/uikit.min.js"></script>
+    <script src="lib/uikit-icons.min.js"></script>
+    <script src="./lib/js-yaml.min.js"></script>
+    <style>
+        body { padding: 24px; }
+        .tab-content { margin-top: 24px; }
+    </style>
+</head>
+<body>
+    <h1>SuccessFactors Addon</h1>
+    <ul uk-tab>
+        <li><a href="#">People</a></li>
+        <li><a href="#">Team</a></li>
+        <li><a href="#">Calendar</a></li>
+        <li><a href="#">Absence</a></li>
+        <li><a href="#">Org Chart</a></li>
+    </ul>
+    <ul class="uk-switcher tab-content">
+        <li>
+            <h3>People View/Edit</h3>
+            <div id="people-tab">
+                <!-- People UI will go here -->
+            </div>
+        </li>
+        <li>
+            <h3>Team View/Edit</h3>
+            <div id="team-tab">
+                <!-- TeamUI will go here -->
+            </div>
+        </li>
+        <li>
+            <h3>Calendar View/Edit</h3>
+            <div id="calendar-tab">
+                <!-- Calendar UI will go here -->
+            </div>
+        </li>
+        <li>
+            <h3>Absence View/Edit</h3>
+            <div id="absence-tab">
+                <!-- Absence UI will go here -->
+            </div>
+        </li>
+        <li>
+            <h3>Organisation Chart View/Edit</h3>
+            <div id="orgchart-tab">
+                <!-- Org Chart UI will go here -->
+            </div>
+        </li>
+    </ul>
+    <script type="module" src="src/ui-main.js"></script>
+</body>
+</html>

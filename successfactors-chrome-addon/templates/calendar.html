@@ -216,32 +216,44 @@
         }
 
         function highlightCurrentDate() {
-            const currentDate = new Date();
-            const currentDay = currentDate.getDate();
-            const currentMonth = currentDate.toLocaleString('en-GB', { month: 'long' });
-            let monthFound = false;
-            let monthNum = 0;
-            let dayNum = 1;
-            let done = false;
-
-            document.querySelectorAll('thead th').forEach(function(th) {
-                if (done) {
-                    return;
-                }
-                if (th.textContent === currentMonth) {
-                    monthFound = true;
-                } else if (monthFound && th.textContent == currentDay) {
-                    if (dayNum != monthNum) {
-                        dayNum += 1;
-                    } else {
-                        th.classList.add('current-date');
-                        done = true;
-                    }
-                } else if (!monthFound) {
-                    monthNum += 1;
+            const today = new Date();
+            const todayString = today.toISOString().split('T')[0];
+            document.querySelectorAll('thead tr:last-child th').forEach(th => {
+                if (th.dataset.date === todayString) {
+                    th.classList.add('current-date');
+                } else {
+                    th.classList.remove('current-date');
                 }
             });
         }
+
+        // function highlightCurrentDate() {
+        //     const currentDate = new Date();
+        //     const currentDay = currentDate.getDate();
+        //     const currentMonth = currentDate.toLocaleString('en-GB', { month: 'long' });
+        //     let monthFound = false;
+        //     let monthNum = 0;
+        //     let dayNum = 1;
+        //     let done = false;
+
+        //     document.querySelectorAll('thead th').forEach(function(th) {
+        //         if (done) {
+        //             return;
+        //         }
+        //         if (th.textContent === currentMonth) {
+        //             monthFound = true;
+        //         } else if (monthFound && th.textContent == currentDay) {
+        //             if (dayNum != monthNum) {
+        //                 dayNum += 1;
+        //             } else {
+        //                 th.classList.add('current-date');
+        //                 done = true;
+        //             }
+        //         } else if (!monthFound) {
+        //             monthNum += 1;
+        //         }
+        //     });
+        // }
 
         function getCurrentDayOfYear() {
             const now = new Date();

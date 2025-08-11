@@ -1,8 +1,5 @@
 import { imageToBase64, parseDate, getDateRange, downloadFile } from './common.js';
 
-// Set default locale for date handling
-Intl.DateTimeFormat.defaultLocale = 'en-GB';
-
 function generateMonthHeaders(startDate, endDate) {
     let headers = '';
     let currentDate = new Date(startDate);
@@ -13,16 +10,16 @@ function generateMonthHeaders(startDate, endDate) {
         if (currentDate.getMonth() !== month) {
             // Invert the even/odd logic by using (month + 1) % 2
             const monthClass = (month + 1) % 2 === 0 ? 'even-month-header' : '';
-            headers += `<th class="sticky sticky-top ${monthClass}" colspan="${colspan}" data-original-colspan="${colspan}">${new Date(1900, month, 1).toLocaleString('en-GB', { month: 'long' })}</th>`;
+            headers += `<th class="sticky sticky-top ${monthClass}" colspan="${colspan}" data-original-colspan="${colspan}">${new Date(1900, month, 1).toLocaleString('default', { month: 'long' })}</th>`;
             month = currentDate.getMonth();
             colspan = 0;
         }
         colspan++;
-        currentDate.setDate(currentDate.getDate() + 1);
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
     // Invert the even/odd logic here as well
     const monthClass = (month + 1) % 2 === 0 ? 'even-month-header' : '';
-    headers += `<th class="sticky sticky-top ${monthClass}" colspan="${colspan}" data-original-colspan="${colspan}">${new Date(1900, month, 1).toLocaleString('en-GB', { month: 'long' })}</th>`;
+    headers += `<th class="sticky sticky-top ${monthClass}" colspan="${colspan}" data-original-colspan="${colspan}">${new Date(1900, month, 1).toLocaleString('default', { month: 'long' })}</th>`;
     return headers;
 }
 
@@ -42,7 +39,7 @@ function generateWeekHeaders(startDate, endDate) {
         }
 
         colspan++;
-        currentDate.setDate(currentDate.getDate() + 1);
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
 
     // Add the last week number
@@ -69,10 +66,14 @@ function generateDateHeaders(startDate, endDate) {
     let currentDate = new Date(startDate);
     while (currentDate <= endDate) {
         const monthClass = (currentDate.getMonth() + 1) % 2 === 0 ? 'even-month-header' : '';
-        const dayOfYear = Math.floor((currentDate - new Date(currentDate.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+        // const dayOfYear = Math.floor((currentDate - new Date(currentDate.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+        const utcCurrent = Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), currentDate.getUTCDate());
+        const utcStart = Date.UTC(currentDate.getUTCFullYear(), 0, 0);
+        const dayOfYear = Math.floor((utcCurrent - utcStart) / (1000 * 60 * 60 * 24));
+
         const dateString = currentDate.toISOString().split('T')[0];
         headers += `<th class="sticky sticky-top ${monthClass}" data-dayofyear="${dayOfYear}" data-date="${dateString}">${String(currentDate.getDate()).padStart(2, '0')}</th>`;
-        currentDate.setDate(currentDate.getDate() + 1);
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
     return headers;
 }
@@ -188,7 +189,7 @@ function generatePersonRows(teams, data, startDate, endDate) {
 
 async function generateCalendarHtml(absenceData, teams) {
     const { startDate, endDate } = getDateRange(absenceData.d.results);
-    const dateRangeTitle = `${startDate.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} - ${endDate.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`;
+    const dateRangeTitle = `${startDate.toLocaleString('default', { month: 'long', year: 'numeric' })} - ${endDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
     const cakeEmojiBase64 = await imageToBase64('images/cake_emoji.png');
 
     // Load template

@@ -80,3 +80,9 @@ function setupEventListeners(buttonHandlers) {
 
 // Initialize event listeners
 setupEventListeners(buttonHandlers);
+
+function openFullUITab() {
+    chrome.tabs.create({ url: chrome.runtime.getURL('ui.html') });
+}
+
+document.getElementById('open-ui-tab-button').addEventListener('click', openFullUITab);
