@@ -40,46 +40,80 @@ export async function loadDatabase() {
     console.log('Starting fresh database initialization');
     initializationPromise = (async () => {
         const db = new Database();
-        
-        // First, try to load from chrome storage (in-memory updates)
-        const storedDatabase = await new Promise(resolve => {
-            chrome.storage.local.get(['database_yaml'], function(result) {
-                resolve(result.database_yaml);
-            });
-        });
-        
-        if (storedDatabase) {
-            console.log('Loading database from storage (contains updates)');
-            db.loadYamlData(storedDatabase);
-            db._loadedFrom = 'storage'; // Debug flag
-        } else {
-            console.log('Loading database from disk (fresh)');
-            const yamlContent = await fetch('config/database.yaml').then(r => r.text());
-            db.loadYamlData(yamlContent);
-            db._loadedFrom = 'disk'; // Debug flag
+
+        // Load both disk and storage YAML for version comparison
+        const [storedDatabase, yamlContent] = await Promise.all([
+            new Promise(resolve => {
+                chrome.storage.local.get(['database_yaml'], function(result) {
+                    resolve(result.database_yaml);
+                });
+            }),
+            fetch('config/database.yaml').then(r => r.text())
+        ]);
+
+        // Helper to extract version from YAML (expects 'version: ...' at top level)
+        function extractVersion(yamlStr) {
+            if (!yamlStr) return null;
+            try {
+                const doc = jsyaml.load(yamlStr);
+                return doc && doc.version ? doc.version : null;
+            } catch (e) {
+                return null;
+            }
         }
-        
+
+        const diskVersion = extractVersion(yamlContent);
+        const cacheVersion = extractVersion(storedDatabase);
+        console.log('Disk version:', diskVersion, 'Cache version:', cacheVersion);
+
+        let useDisk = false;
+        // If cache is missing or cache version is null, use disk
+        if (!storedDatabase || cacheVersion === null) {
+            useDisk = true;
+        } else if (diskVersion && cacheVersion) {
+            // If disk version is newer (assume numeric or ISO string comparison)
+            if (diskVersion > cacheVersion) {
+                useDisk = true;
+            }
+        }
+
+        if (useDisk) {
+            console.log('Loading database from disk (fresh, disk version newer, or cache missing/invalid)');
+            db.loadYamlData(yamlContent);
+            db._loadedFrom = 'disk';
+            // Save disk version to cache for future loads
+            await new Promise(resolve => {
+                chrome.storage.local.set({ database_yaml: yamlContent }, function() {
+                    resolve();
+                });
+            });
+        } else {
+            console.log('Loading database from storage (contains updates, cache version >= disk)');
+            db.loadYamlData(storedDatabase);
+            db._loadedFrom = 'storage';
+        }
+
         // Get holiday data from storage
         const storageData = await new Promise(resolve => {
             chrome.storage.local.get(['absence_data'], function(result) {
                 resolve(result.absence_data);
             });
         });
-        
+
         if (storageData) {
             db.loadHolidayData(storageData);
         }
-        
+
         databaseInstance = db;
         databaseInitialized = true;
-        
+
         // Set up auto-save callback
         db.setOnUpdateCallback(async () => {
             console.log('Database updated, saving to storage...');
             await saveDatabaseToStorage();
         });
-        
-        console.log('Database initialized with', db.people.size, 'people from', db._loadedFrom);
+
+        console.log('Database initialized with', db.people.size, 'people from', db._loadedFrom, 'diskVersion:', diskVersion, 'cacheVersion:', cacheVersion);
         return db;
     })();
 

@@ -256,38 +256,39 @@ export default class Database {
      */
     exportToYaml() {
         const data = {
+            version: new Date().toISOString().split('T')[0].replace(/-/g, ''),
             database: {
-                people: Array.from(this.people.values()).map(person => ({
-                    name: person.name,
-                    birthday: person.birthday || '',
-                    title: person.title || '',
-                    external: Boolean(person.external),
-                    team_name: person.team_name || '',
-                    virtual_team: person.virtual_team || [],  // Always export as array
-                    legal_manager: person.legal_manager || '',
-                    functional_manager: person.functional_manager || person.legal_manager || '',
-                    carry_over_holidays: person.carry_over_holidays || 0,
-                    site: person.site || 'LY'
-                })),
-                teams: Array.from(this.teams.values())
-                    .filter(team => team.name !== 'N/A')
-                    .map(team => {
-                        // Create basic team structure
-                        const teamData = {
-                            name: team.name
-                        };
-                        // Only add product_owner if it exists
-                        if (team.product_owner) {
-                            teamData.product_owner = team.product_owner;
-                        }
-                        // Always add functional_manager (empty string if not set)
-                        teamData.functional_manager = team.functional_manager || '';
-                        return teamData;
-                    }),
-                projects: (this.projects || []).map(project => ({
-                    name: project.name,
-                    project_lead: project.project_lead || ''
-                }))
+            people: Array.from(this.people.values()).map(person => ({
+                name: person.name,
+                birthday: person.birthday || '',
+                title: person.title || '',
+                external: Boolean(person.external),
+                team_name: person.team_name || '',
+                virtual_team: person.virtual_team || [],  // Always export as array
+                legal_manager: person.legal_manager || '',
+                functional_manager: person.functional_manager || person.legal_manager || '',
+                carry_over_holidays: person.carry_over_holidays || 0,
+                site: person.site || 'LY'
+            })),
+            teams: Array.from(this.teams.values())
+                .filter(team => team.name !== 'N/A')
+                .map(team => {
+                // Create basic team structure
+                const teamData = {
+                    name: team.name
+                };
+                // Only add product_owner if it exists
+                if (team.product_owner) {
+                    teamData.product_owner = team.product_owner;
+                }
+                // Always add functional_manager (empty string if not set)
+                teamData.functional_manager = team.functional_manager || '';
+                return teamData;
+                }),
+            projects: (this.projects || []).map(project => ({
+                name: project.name,
+                project_lead: project.project_lead || ''
+            }))
             }
         };
         return jsyaml.dump(data, { quotingType: '"', lineWidth: -1 });
@@ -440,6 +441,8 @@ export default class Database {
             this.managers.get(person.legal_manager).delete(name);
         }
 
+        // Notify that database has been updated
+        this._notifyUpdate();
         return true;
     }
 
@@ -591,6 +594,8 @@ export default class Database {
             this.teams.set(name, updatedTeam);
         }
 
+        // Notify that database has been updated
+        this._notifyUpdate();
         return true;
     }
 
@@ -605,6 +610,9 @@ export default class Database {
             ...this.projects[projectIndex],
             ...updates
         };
+
+        // Notify that database has been updated
+        this._notifyUpdate();
         return true;
     }
 
@@ -617,6 +625,9 @@ export default class Database {
         normalizedTeam.functional_manager = teamData.functional_manager || '';
         
         this.teams.set(teamData.name, normalizedTeam);
+
+        // Notify that database has been updated
+        this._notifyUpdate();
         return true;
     }
 
@@ -628,6 +639,9 @@ export default class Database {
             name: projectData.name || '',
             project_lead: projectData.project_lead || ''
         });
+
+        // Notify that database has been updated
+        this._notifyUpdate();
         return true;
     }
 
@@ -635,7 +649,11 @@ export default class Database {
      * Removes a team from the database
      */
     removeTeam(name) {
-        return this.teams.delete(name);
+        const status = this.teams.delete(name);
+
+        // Notify that database has been updated
+        this._notifyUpdate();
+        return status;
     }
 
     /**
@@ -646,6 +664,9 @@ export default class Database {
         if (projectIndex === -1) return false;
         
         this.projects.splice(projectIndex, 1);
+
+        // Notify that database has been updated
+        this._notifyUpdate();
         return true;
     }
 }
