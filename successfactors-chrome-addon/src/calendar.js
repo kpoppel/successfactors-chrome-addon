@@ -112,6 +112,14 @@ function generateTeamFilters(database) {
     return filters;
 }
 
+function normalizeTeamName(name) {
+        console.log('Normalizing team name class:', name, '->', name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'));
+        return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        //console.log('Normalizing team name:', name, '->', name.replace(' ', '_'));
+        //return name.replace(' ', '_');
+    }
+
+
 function generatePersonRows(database, startDate, endDate) {
     let rows = "";
     
@@ -125,11 +133,11 @@ function generatePersonRows(database, startDate, endDate) {
         // Get all teams this person belongs to (including virtual teams)
         const teamClasses = [];
         if (person.team_name) {
-            teamClasses.push(person.team_name.replace(' ', '_'));
+            teamClasses.push(normalizeTeamName(person.team_name));
         }
         if (person.virtual_team && Array.isArray(person.virtual_team)) {
             person.virtual_team.forEach(teamName => {
-                teamClasses.push(teamName.replace(' ', '_'));
+                teamClasses.push(normalizeTeamName(teamName));
             });
         }
 

@@ -10,10 +10,10 @@ console.log('ui-main.js loaded');
 document.addEventListener('DOMContentLoaded', () => {
     // NOTE: Sequence is important here. If there is added tabs or they are switched in sequence, update here too.
     const tabHandlers = [
-        () => showPeopleTab(),
-        () => showTeamTab(),
         () => showCalendarTab(),
         () => showOrgChartTab(),
+        () => showPeopleTab(),
+        () => showTeamTab(),
         () => showAbsenceTab()
     ];
 
@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial render for the default tab
     const UIkitSwitcherIndex = UIkit.switcher(switcherElement).index();
     if (tabHandlers[UIkitSwitcherIndex]) {
-        tabHandlers[UIkitSwitcherIndex]();
-    }
+        requestAnimationFrame(() => {
+            tabHandlers[UIkitSwitcherIndex]();
+    });
+}    
 });

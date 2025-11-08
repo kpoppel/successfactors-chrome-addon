@@ -232,7 +232,8 @@ export async function imageToBase64(imagePath) {
         });
         return base64Data;
     } catch (error) {
-        console.error("Error converting image to Base64:", error);
+        // TODO: Actually keep the printout when debugging
+        //console.error("Error converting image to Base64:", error);
         return null;
     }
 }

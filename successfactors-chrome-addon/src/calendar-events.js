@@ -74,6 +74,14 @@ export class CalendarEventHandler {
         this.setupHeaderClickHandlers();
     }
 
+    
+    normalizeTeamName(name) {
+        //console.log('Normalizing team name:', name, '->', name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'));
+        return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        //console.log('Normalizing team name:', name, '->', name.replace(' ', '_'));
+        //return name.replace(' ', '_');
+    }
+
     setupTeamFilters() {
         // Find all collapsible elements for team filtering
         this.container.querySelectorAll('.collapsible').forEach(element => {
@@ -84,7 +92,7 @@ export class CalendarEventHandler {
                 if (text === 'All') teamName = 'all';
                 else if (text === 'Absent today') teamName = 'absences';
                 else if (text === 'Birthdays') teamName = 'birthdays';
-                else teamName = text.replace(' ', '_');
+                else teamName = this.normalizeTeamName(text);
                 
                 // Reset all filter buttons to inactive state
                 this.container.querySelectorAll('.collapsible').forEach(btn => {
@@ -218,7 +226,7 @@ export class CalendarEventHandler {
         });
 
         if (team !== 'all' && team !== 'birthdays' && team !== 'absences') {
-            this.container.querySelectorAll('.' + team).forEach(row => {
+            this.container.querySelectorAll('.' + this.normalizeTeamName(team)).forEach(row => {
                 row.classList.remove('hidden');
             });
         }
@@ -472,17 +480,21 @@ export class CalendarEventHandler {
     }
 
     filterByDay(dateString) {
-        // Find the index of the clicked date cell
-        const dateCell = Array.from(document.querySelectorAll('thead tr:last-child th')).find(th => th.dataset.date === dateString);
-        if (!dateCell) return;
+        // Only select th elements that are date columns
+        const dateCells = Array.from(document.querySelectorAll('thead tr:last-child th[data-date]'));
+        const dateCell = dateCells.find(th => th.dataset.date === dateString);
 
-        const dateRow = document.querySelector('thead tr:last-child');
-        const allDateCells = Array.from(dateRow.children);
-        const targetIndex = allDateCells.indexOf(dateCell);
+        if (!dateCell) {
+            return;
+        }
 
-        document.querySelectorAll('tbody tr').forEach(row => {
-            // Check if the cell at target date has absence or non-working class
-            const targetCell = row.children[targetIndex];
+        const targetIndex = dateCells.indexOf(dateCell);
+
+        document.querySelectorAll('tbody tr').forEach((row, rowIdx) => {
+            // Find all td that correspond to date columns
+            const dateTds = Array.from(row.querySelectorAll('td[data-date]'));
+            const targetCell = dateTds[targetIndex];
+
             if (targetCell && (
                 targetCell.classList.contains('absence') || 
                 targetCell.classList.contains('absence_planned') || 

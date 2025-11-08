@@ -18,16 +18,27 @@ export async function generateOrgChartHtml(database) {
     // Load images for all people in the database
     await Promise.all(
         Array.from(database.people.values()).map(async person => {
-            if (
-                person.userId && !person.userId.startsWith('ext_')
-            ) {
+            if (person.userId) {
+                let image_data = null;
                 try {
-                    const image_data = await imageToBase64('config/img/' + person.userId + '.jpg');
-                    userImages.set(person.userId, image_data);
+                    if (!person.userId.startsWith('ext_')) {
+                        image_data = await imageToBase64('config/img/' + person.userId + '.jpg');
+                    } else {
+                        throw new Error(`Trying via name: ${response.status} ${response.statusText}`);
+                    }
                 } catch (error) {
-                    console.log(`Failed to load image for user ${person.userId}, using fallback`);
-                    userImages.set(person.userId, silhouetteBase64);
+                    // Try lower_case_name if userId image not found
+                    const lowerCaseName = person.name.toLowerCase().replace(/\s+/g, '_');
+                    try {
+                        image_data = await imageToBase64('config/img/' + lowerCaseName + '.jpg');
+                    } catch (error2) {
+                        console.log(`INFO: Failed to load image for user ${person.userId} and name ${lowerCaseName}, using fallback`);
+                        image_data = silhouetteBase64;
+                    }
                 }
+                userImages.set(person.userId, image_data);
+            } else {
+                console.log(`WARNING: Found a person with no userId: ${person.name}`);
             }
         })
     );
