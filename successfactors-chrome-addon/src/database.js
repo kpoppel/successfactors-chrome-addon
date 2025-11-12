@@ -392,21 +392,39 @@ export default class Database {
     /**
      * Gets all people as an array for table display
      */
-    getAllPeople() {
-        return Array.from(this.people.values()).map(person => ({
+    getAllPeople(sort_by = null) {
+        let peopleArray = Array.from(this.people.values()).map(person => ({
             name: person.name,
             userId: person.userId || '',
             title: person.title || '',
             birthday: person.birthday || '',
-            team: person.team_name || '',
+            team_name: person.team_name || '',
             virtual_team: person.virtual_team || [],
             legal_manager: person.legal_manager || '',
             functional_manager: person.functional_manager || '',
             external: person.external || false,
             carry_over_holidays: person.carry_over_holidays || 0,
             site: person.site || 'LY',
-            hasHolidayData: Boolean(person.userId)
+            hasHolidayData: Boolean(person.userId && !String(person.userId).startsWith('ext_')),
+            holidays: person.holidays || [],
+            nonWorkingDates: person.nonWorkingDates || [],
+            employeeTime: person.employeeTime || []
         }));
+
+        if (sort_by && peopleArray.length > 0 && sort_by in peopleArray[0]) {
+            peopleArray.sort((a, b) => {
+                if (a[sort_by] === undefined) return 1;
+                if (b[sort_by] === undefined) return -1;
+                if (typeof a[sort_by] === 'string' && typeof b[sort_by] === 'string') {
+                    return a[sort_by].localeCompare(b[sort_by]);
+                }
+                if (a[sort_by] < b[sort_by]) return -1;
+                if (a[sort_by] > b[sort_by]) return 1;
+                return 0;
+            });
+        }
+
+        return peopleArray;
     }
 
     /**

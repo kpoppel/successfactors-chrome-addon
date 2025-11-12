@@ -126,6 +126,7 @@ function setupExportButton(container, db) {
             // Use File System Access API if available
             if ('showSaveFilePicker' in window) {
                 const handle = await window.showSaveFilePicker({
+                    //startIn: '', // TODO: specify a starting directory ex. based on a setting telling where the extension is installed
                     suggestedName: 'database.yaml',
                     types: [{
                         description: 'YAML File',

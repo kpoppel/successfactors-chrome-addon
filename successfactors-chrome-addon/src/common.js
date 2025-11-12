@@ -256,6 +256,9 @@ export function getDateRange(data) {
 }
 
 export function downloadFile(content, filename, type) {
+    // Download a file to the Downloads directory.
+    // TODO: Could add download location options based on extension settings.
+    //       This would utilise the showSaveFilePicker API if available.
     const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

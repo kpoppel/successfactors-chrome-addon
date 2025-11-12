@@ -124,9 +124,13 @@ function generatePersonRows(database, startDate, endDate) {
     let rows = "";
     
     // Process each person in the database
-    for (const person of database.people.values()) {
+    const people = database.getAllPeople('name');
+    console.log(people);
+    for (const person of people) {
         // Skip people without team assignment or holiday data
-        if (!person.team_name || (!person.holidays && !person.nonWorkingDates)) {
+        // NOTE: Comment this if you want to see all people regardless of data completeness
+        if (!person.team_name || person.hasHolidayData === false) { //(!person.holidays && !person.nonWorkingDates)) {
+            console.log('Skipping person without team or holiday data:', person.name);
             continue;
         }
 
