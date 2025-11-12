@@ -112,6 +112,13 @@ function generateTeamFilters(database) {
     return filters;
 }
 
+function generateBirthdayFilter(include_birthdays) {
+    if (!include_birthdays) {
+        return '';
+    }
+    return `<div id="birthdayFilter" class="collapsible toggle-button" style="display: block; padding: 5px 15px; cursor: pointer; background-color: #f0f0f0; color: #333; border-radius: 3px; margin: 2px 0;">Birthdays</div>`;
+}
+
 function normalizeTeamName(name) {
         console.log('Normalizing team name class:', name, '->', name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'));
         return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -120,7 +127,7 @@ function normalizeTeamName(name) {
     }
 
 
-function generatePersonRows(database, startDate, endDate) {
+function generatePersonRows(database, startDate, endDate, include_birthdays) {
     let rows = "";
     
     // Process each person in the database
@@ -177,12 +184,17 @@ function generatePersonRows(database, startDate, endDate) {
             });
         }
 
-        // Generate row start with birthday info
         const birthday = person.birthday ? new Date(person.birthday) : null;
-        const teamClassesStr = teamClasses.join(' ');
-        rows += birthday ? 
-            `<tr class='${teamClassesStr}' data-birthday-month='${birthday.getMonth() + 1}'><td class='sticky sticky-left'>${person.name}</td>` :
-            `<tr class='${teamClassesStr}'><td class='sticky sticky-left'>${person.name}</td>`;
+        if (include_birthdays) {
+            // Generate row start with birthday info
+            const teamClassesStr = teamClasses.join(' ');
+            rows += birthday ? 
+                `<tr class='${teamClassesStr}' data-birthday-month='${birthday.getMonth() + 1}'><td class='sticky sticky-left'>${person.name}</td>` :
+                `<tr class='${teamClassesStr}'><td class='sticky sticky-left'>${person.name}</td>`;
+        } else {
+            const teamClassesStr = teamClasses.join(' ');
+            rows += `<tr class='${teamClassesStr}'><td class='sticky sticky-left'>${person.name}</td>`;
+        }
 
         // Generate date cells
         const currentDate = new Date(startDate);
@@ -196,7 +208,7 @@ function generatePersonRows(database, startDate, endDate) {
             else if (pendingApproval.has(dateStr)) classes.push('absence_planned');
             else if (pendingCancellation.has(dateStr)) classes.push('absence_cancelled');
 
-            if (birthday && 
+            if (include_birthdays && birthday && 
                 currentDate.getUTCMonth() === birthday.getUTCMonth() && 
                 currentDate.getUTCDate() === birthday.getUTCDate()) {
                 classes.push('birthday');
@@ -226,11 +238,12 @@ export async function generateCalendarHtml(database, cakeEmojiBase64) {
     // Replace placeholders
     const replacements = {
         '{{dateRangeTitle}}': dateRangeTitle,
+        '{{birthdayFilter}}': generateBirthdayFilter(true),
         '{{teamFilters}}': generateTeamFilters(database),
         '{{monthHeaders}}': generateMonthHeaders(startDate, endDate),
         '{{weekHeaders}}': generateWeekHeaders(startDate, endDate),
         '{{dateHeaders}}': generateDateHeaders(startDate, endDate),
-        '{{personRows}}': generatePersonRows(database, startDate, endDate)
+        '{{personRows}}': generatePersonRows(database, startDate, endDate, true)
     };
 
     for (const [placeholder, value] of Object.entries(replacements)) {
@@ -268,11 +281,12 @@ async function generateCalendarHtmlForDownload(database) {
     // Replace placeholders in the content template
     const contentReplacements = {
         '{{dateRangeTitle}}': dateRangeTitle,
+        '{{birthdayFilter}}': generateBirthdayFilter(false),
         '{{teamFilters}}': generateTeamFilters(database),
         '{{monthHeaders}}': generateMonthHeaders(startDate, endDate),
         '{{weekHeaders}}': generateWeekHeaders(startDate, endDate),
         '{{dateHeaders}}': generateDateHeaders(startDate, endDate),
-        '{{personRows}}': generatePersonRows(database, startDate, endDate)
+        '{{personRows}}': generatePersonRows(database, startDate, endDate, false)
     };
 
     for (const [placeholder, value] of Object.entries(contentReplacements)) {
