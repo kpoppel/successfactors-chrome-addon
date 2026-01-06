@@ -40,6 +40,7 @@ def generate_html():
     cake_emoji_base64 = load_image()
     start_date, end_date = get_date_range(data)
     date_range_title = f"{start_date.strftime('%B %Y')} - {end_date.strftime('%B %Y')}"
+    generated_at = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     html_content = f"""
 <!DOCTYPE html>
@@ -181,6 +182,9 @@ def generate_html():
                     </tbody>
                 </table>
             </div>
+                <div class="footer" style="text-align:center; padding:8px; background:#f8f8f8; border-top:1px solid #e0e0e0; font-size:0.9em;">
+                    Calendar generated: {generated_at}
+                </div>
         </div>
     </div>
     <script>

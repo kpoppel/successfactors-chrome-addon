@@ -309,6 +309,10 @@ async function generateCalendarHtmlForDownload(database) {
         template = template.replace(placeholder, value);
     }
 
+    // Inject a generated timestamp footer (only for the downloadable standalone HTML)
+    const generatedAt = new Date().toLocaleString();
+    template = template.replace('{{generatedAtFooter}}', `Calendar generated: ${generatedAt}`);
+
     return template;
 }
 
