@@ -6,11 +6,12 @@ export async function generateOrgChartAndDownload() {
     const database = await getDatabase();
     console.log('Generating organization chart with database - people count:', database.people.size);
     
-    const chartHtml = await generateOrgChartHtml(database);
+    // Generate chart HTML in export mode so the generator itself includes the footer
+    const chartHtml = await generateOrgChartHtml(database, true);
     downloadFile(chartHtml, 'org_chart.html', 'text/html');
 }
 
-export async function generateOrgChartHtml(database) {
+export async function generateOrgChartHtml(database, exportMode = false) {
     const silhouetteBase64 = await imageToBase64('images/silhouette.jpg');
     const userImages = new Map();
     userImages.set('fallback', silhouetteBase64);
@@ -43,6 +44,8 @@ export async function generateOrgChartHtml(database) {
         })
     );
 
+    const generatedAt = exportMode ? new Date().toLocaleString() : '';
+
     return `
 <!DOCTYPE html>
 <html>
@@ -66,6 +69,17 @@ export async function generateOrgChartHtml(database) {
         .member img { width: 100px; height: 100px; object-fit: cover; }
         .member .name { font-weight: bold; font-size: 12px; margin-top: 10px; text-align: center; width: 100px; word-wrap: break-word; }
         .member .title { font-size: 12px; margin-top: 5px; text-align: center; width: 100px; word-wrap: break-word; }
+
+        /* Footer for generated timestamp (export only) */
+        #generated-footer { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-size: 12px;
+            text-align: center;
+            padding: 8px;
+            background: #f8f8f8;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -76,6 +90,8 @@ export async function generateOrgChartHtml(database) {
     <div class="projects-container">
         ${generateProjectBlocks(database, userImages)}
     </div>
+    <!-- Generated timestamp footer (only added in download/export path) -->
+    ${exportMode ? `<div id="generated-footer">Organization chart generated: ${generatedAt}</div>` : ''}
 </body>
 </html>`;
 }

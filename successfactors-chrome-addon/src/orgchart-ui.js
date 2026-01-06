@@ -9,14 +9,15 @@ export async function showOrgChartTab() {
     try {
         // Get the database and generate the org chart HTML
         const database = await getDatabase();
-        const orgChartHtml = await generateOrgChartHtml(database);
-        
+        // Generate org chart HTML for UI mode (do not include export-only footer)
+        const orgChartHtml = await generateOrgChartHtml(database, false);
+
         // Extract just the body content from the full HTML document
         const parser = new DOMParser();
         const doc = parser.parseFromString(orgChartHtml, 'text/html');
         const bodyContent = doc.body.innerHTML;
         const styles = doc.head.querySelector('style').innerHTML;
-        
+
         // Create a container with the styles and content
         tab.innerHTML = `
             <style>${styles}</style>
