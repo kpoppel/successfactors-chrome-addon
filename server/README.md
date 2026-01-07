@@ -102,19 +102,7 @@ Endpoints
 		 http://127.0.0.1:8765/api/teamdb
 	```
 
-3. POST /api/teamdb/save-as?path=/full/path/to/file.yaml
-
-	- Save the provided payload to a specific filesystem path. This is primarily a convenience/dev endpoint. It does not require token auth.
-	- The server will create parent directories if they do not exist.
-
-	Example:
-
-	```bash
-	curl -X POST -H "Content-Type: application/json" --data @database.json \
-		 "http://127.0.0.1:8765/api/teamdb/save-as?path=/tmp/mydb.yaml"
-	```
-
-4. POST /api/token
+3. POST /api/token
 
 	- Generate and store a token for a given email. This endpoint is restricted to callers from `localhost` only to avoid remote token generation.
 	- Payload: JSON `{ "email": "user@example.com" }`
