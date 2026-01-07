@@ -11,3 +11,10 @@ port: 8765
 
 # How many backups to keep when the DB is overwritten
 # max_backups: 10
+
+# CORS allowed origins. Recommended options:
+# - For development on the same machine: ['http://127.0.0.1', 'http://localhost']
+# - For a specific origin: ['https://app.example.com']
+# - Do NOT use '*' in production. If '*' is set, credentials will be disabled for safety.
+#allow_origins: ['http://127.0.0.1', 'http://localhost']
+

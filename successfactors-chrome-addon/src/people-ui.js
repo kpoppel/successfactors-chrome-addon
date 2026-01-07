@@ -1,17 +1,22 @@
 // src/people-ui.js
 // Renders a table of all employees with Name, Birthday, Title, Team, and Manager.
-import { getDatabase, showNotification } from './common.js';
+import { getDatabase, showNotification, reloadDatabase } from './common.js';
 import { initializeTableHandlers, resetTableInitialization } from './people-ui-table-handlers.js';
+import { addPendingChange, loadPendingChanges, saveToServer as saveToServerCommon, loadLocal } from './team-db-sync.js';
+import { storageManager } from './storage-manager.js';
 
 class PeopleTableGenerator {
     constructor(db) {
         this.db = db;
         this.teamNames = db.getAllTeamNames();
         this.managers = db.getAllManagers();
+        this._pendingPromise = loadPendingChanges();
         console.log('Database loaded:', this.db);
     }
 
     async generatePeopleTable() {
+        // Await pending changes
+        this._pending = await this._pendingPromise;
         // Load template
         const templateResponse = await fetch(chrome.runtime.getURL('templates/people-ui-table.html'));
         let template = await templateResponse.text();
@@ -88,7 +93,7 @@ class PeopleTableGenerator {
             { value: person.name || '', editable: true },
             { value: person.birthday || '', editable: true },
             { value: person.title || '', editable: true },
-            { value: this.db.getPersonTeam(person.name) || '', options: this.teamNames },
+            { value: person.team_name || '', options: this.teamNames },
             { value: person.legal_manager || '', options: this.managers },
             { value: person.functional_manager || '', options: this.managers },
             { value: person.external, type: 'external' },  // Pass the boolean value directly
@@ -101,8 +106,9 @@ class PeopleTableGenerator {
             { value: '🗑️', type: 'button' }
         ];
         console.log('Generating row for person:', person, 'with cells:', cells);
+        const pending = (this._pending && this._pending.people && this._pending.people.includes(person.name));
         return `
-            <tr data-userid="${person.userId}">
+            <tr class="${pending ? 'pending-row' : ''}" data-userid="${person.userId}">
                 ${cells.map(cell => this.generateTableCell(cell)).join('')}
             </tr>
         `;
@@ -196,7 +202,9 @@ export async function showPeopleTab() {
         const tableHtml = await tableGenerator.generatePeopleTable();
         
         tab.innerHTML = tableHtml;
-        setupExportButton(tab, db);
+        await setupExportButton(tab, db);
+
+        // Rows with pending changes are highlighted inline; use the main Save button to persist changes to server.
 
         // Add event handlers after the table is rendered
         addEventHandlers(db);
@@ -206,11 +214,14 @@ export async function showPeopleTab() {
         initializeTableHandlers();
     } catch (error) {
         console.error('Error loading people UI:', error);
-        tab.innerHTML = 'Error loading people data.';
+        tab.innerHTML = `<div class="uk-alert-danger" uk-alert>
+            <p><strong>Error loading people data:</strong> ${error.message}</p>
+            <p>Please check that either a server URL is configured or a local database file is available.</p>
+        </div>`;
     }
 }
 
-function setupExportButton(container, db) {
+async function setupExportButton(container, db) {
     const primary = container.querySelector('#exportPrimary');
     const toggle = container.querySelector('#exportTogglePeople');
     const dropdown = container.querySelector('#exportDropdownPeople');
@@ -246,36 +257,28 @@ function setupExportButton(container, db) {
         }
     }
 
-    async function saveToServer(yaml) {
-        return new Promise((resolve, reject) => {
-            chrome.storage.local.get(['server_url', 'teamdb_email', 'teamdb_token'], async (items) => {
-                const serverUrl = (items.server_url || '').replace(/\/$/, '') || null;
-                if (!serverUrl) return reject(new Error('No server_url configured'));
-                try {
-                    const url = serverUrl + '/api/teamdb';
-                    const headers = { 'Content-Type': 'application/json' };
-                    if (items.teamdb_email) headers['X-TeamDB-Email'] = items.teamdb_email;
-                    if (items.teamdb_token) headers['X-TeamDB-Token'] = items.teamdb_token;
-                    let payload = null;
-                    try { payload = jsyaml.load(yaml); } catch (e) { payload = yaml; }
-                    const resp = await fetch(url, { method: 'PUT', headers, body: JSON.stringify(payload) });
-                    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-                    resolve(await resp.json().catch(() => ({})));
-                } catch (err) {
-                    reject(err);
-                }
-            });
-        });
-    }
-
     async function doPrimaryAction() {
         const yaml = db.exportToYaml();
-        const items = await new Promise(res => chrome.storage.local.get(['server_url'], r => res(r)));
-        if (items.server_url) {
+        const items = await storageManager.getMultiple(['server_url', 'teamdb_email', 'teamdb_token']);
+        const serverUrl = items.server_url;
+        if (serverUrl) {
             try {
-                const result = await saveToServer(yaml);
+                // Prepare local entry for common saveToServer function
+                const localEntry = await loadLocal();
+                if (!localEntry) {
+                    throw new Error('No local data to save');
+                }
+                const result = await saveToServerCommon(localEntry, serverUrl, items.teamdb_email, items.teamdb_token);
                 const message = result.message || 'Saved to server';
                 showNotification(true, message);
+                // refresh the database in-place so pending-row highlights are removed
+                try {
+                    await reloadDatabase();
+                    await showPeopleTab();
+                } catch (e) {
+                    console.warn('In-place reload failed, falling back to full reload:', e);
+                    location.reload();
+                }
             } catch (err) {
                 console.error(err);
                 showNotification(false, 'Save to server failed: ' + err.message);
@@ -306,23 +309,21 @@ function setupExportButton(container, db) {
     });
 
     // Set primary label and dropdown visibility based on configured server_url
-    chrome.storage.local.get(['server_url'], (items) => {
-        const serverUrl = (items.server_url || '').trim();
-        const hasServer = serverUrl.length > 0;
-        if (hasServer) {
-            primary.textContent = 'Save to Server';
-            primary.title = 'Save to Server';
-            toggle.style.display = 'flex';
-            if (saveFile) saveFile.style.display = 'block';
-            if (saveServer) saveServer.style.display = 'none';
-        } else {
-            primary.textContent = 'Save to File';
-            primary.title = 'Save to File';
-            toggle.style.display = 'none';
-            if (saveFile) saveFile.style.display = 'none';
-            if (saveServer) saveServer.style.display = 'block';
-        }
-    });
+    const serverUrl = await storageManager.get('server_url', '');
+    const hasServer = serverUrl.trim().length > 0;
+    if (hasServer) {
+        primary.textContent = 'Save to Server';
+        primary.title = 'Save to Server';
+        toggle.style.display = 'flex';
+        if (saveFile) saveFile.style.display = 'block';
+        if (saveServer) saveServer.style.display = 'none';
+    } else {
+        primary.textContent = 'Save to File';
+        primary.title = 'Save to File';
+        toggle.style.display = 'none';
+        if (saveFile) saveFile.style.display = 'none';
+        if (saveServer) saveServer.style.display = 'block';
+    }
 
     primary.addEventListener('click', async () => { await doPrimaryAction(); });
 
@@ -345,7 +346,12 @@ function setupExportButton(container, db) {
             dropdown.style.display = 'none';
             const yaml = db.exportToYaml();
             try {
-                const result = await saveToServer(yaml);
+                const items = await storageManager.getMultiple(['server_url', 'teamdb_email', 'teamdb_token']);
+                const localEntry = await loadLocal();
+                if (!localEntry) {
+                    throw new Error('No local data to save');
+                }
+                const result = await saveToServerCommon(localEntry, items.server_url, items.teamdb_email, items.teamdb_token);
                 const message = result.message || 'Saved to server';
                 showNotification(true, message);
             } catch (err) {
@@ -373,6 +379,7 @@ function addEventHandlers(db) {
             });
             
             db.updatePersonData(person);
+            await addPendingChange('people', person.name);
 
             // Re-render only the table content
             const tableGenerator = new PeopleTableGenerator(db);
@@ -411,12 +418,14 @@ function addEventHandlers(db) {
     // Add delete row handlers
     const deleteButtons = document.querySelectorAll('.delete-row');
     deleteButtons.forEach(button => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', async () => {
             const row = button.closest('tr');
             const name = row.cells[0].textContent.trim();
             
             if (confirm(`Are you sure you want to delete ${name}?`)) {
                 db.removePerson(name);
+                await addPendingChange('people', name);
+                row.classList.add('pending-row');
                 row.remove();
             }
         });
@@ -467,7 +476,7 @@ function addEventHandlers(db) {
             });
         });
 
-        doneButton.addEventListener('click', (e) => {
+        doneButton.addEventListener('click', async (e) => {
             e.stopPropagation();
             const selectedTeams = Array.from(cell.querySelectorAll('input:checked'))
                 .map(input => input.value);
@@ -475,6 +484,14 @@ function addEventHandlers(db) {
             const row = cell.closest('tr');
             const userId = row.dataset.userid;
             db.updatePersonByUserId(userId, { virtual_team: selectedTeams });
+            // Mark person as pending by name (read name cell)
+            try {
+                const personName = row.cells[0].textContent.trim();
+                await addPendingChange('people', personName);
+                row.classList.add('pending-row');
+            } catch (e) {
+                console.error('Failed to mark pending change for virtual team:', e);
+            }
             
             dropdown.classList.remove('show');
         });
@@ -490,7 +507,7 @@ function addEventHandlers(db) {
     });
 }
 
-function handleCellEdit(cell, db) {
+async function handleCellEdit(cell, db) {
     const row = cell.closest('tr');
     const userId = row.dataset.userid;
     const columnIndex = Array.from(row.cells).indexOf(cell);
@@ -514,9 +531,16 @@ function handleCellEdit(cell, db) {
 
     // Update the database using userId
     db.updatePersonByUserId(userId, updates);
+    try {
+        const name = updates.name || row.cells[0].textContent.trim();
+        await addPendingChange('people', name);
+        row.classList.add('pending-row');
+    } catch (e) {
+        console.error('Failed to mark pending change for edit:', e);
+    }
 }
 
-function handleSelectChange(select, db) {
+async function handleSelectChange(select, db) {
     const row = select.closest('tr');
     const userId = row.dataset.userid;
     const columnIndex = Array.from(row.cells).indexOf(select.closest('td'));
@@ -537,4 +561,11 @@ function handleSelectChange(select, db) {
 
     // Update the database using userId
     db.updatePersonByUserId(userId, updates);
+    try {
+        const name = row.cells[0].textContent.trim();
+        await addPendingChange('people', name);
+        row.classList.add('pending-row');
+    } catch (e) {
+        console.error('Failed to mark pending change for select change:', e);
+    }
 }

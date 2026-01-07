@@ -69,6 +69,7 @@ export async function generateOrgChartHtml(database, exportMode = false) {
         .member img { width: 100px; height: 100px; object-fit: cover; }
         .member .name { font-weight: bold; font-size: 12px; margin-top: 10px; text-align: center; width: 100px; word-wrap: break-word; }
         .member .title { font-size: 12px; margin-top: 5px; text-align: center; width: 100px; word-wrap: break-word; }
+        .member.virtual-member { background-color: #f0f8ff; border-radius: 8px; padding: 5px; }
 
         /* Footer for generated timestamp (export only) */
         #generated-footer { 
@@ -166,8 +167,12 @@ function generateTeamMembers(team, database, userImages) {
 
     return regularMembers
         .map(person => {
+            // Check if this person is a virtual member of this team
+            const isVirtual = person.virtual_team && person.virtual_team.includes(team.name);
+            const virtualClass = isVirtual ? ' virtual-member' : '';
+            
             return `
-                <div class="member">
+                <div class="member${virtualClass}">
                     <img src="${person.userId && userImages.get(person.userId) || userImages.get('fallback')}" alt="${person.name}">
                     <div class="name">${person.name}</div>
                     <div class="title">${person.title || ''}</div>

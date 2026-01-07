@@ -25,6 +25,9 @@ export async function showOrgChartTab() {
         `;
     } catch (error) {
         console.error('Error loading organizational chart:', error);
-        tab.innerHTML = '<div>Error loading organizational chart. Please try again.</div>';
+        tab.innerHTML = `<div class="uk-alert-danger" uk-alert>
+            <p><strong>Error loading organizational chart:</strong> ${error.message}</p>
+            <p>Please check that either a server URL is configured or a local database file is available.</p>
+        </div>`;
     }
 }

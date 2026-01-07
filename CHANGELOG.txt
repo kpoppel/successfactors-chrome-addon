@@ -1,0 +1,127 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+This changelog follows "Keep a Changelog" conventions and the Conventional Commits / semantic changelog mapping.
+
+Unreleased
+=========
+
+Added
+-----
+- feat(teams): Add Short Name column to Teams tab with auto-suggestion feature
+  - Generates 3-letter uppercase abbreviations from team names
+  - Special handling: '&' and 'and' are converted to 'N' (e.g., "Test & Integration" → "TNI")
+  - Auto-suggests short names when creating new teams or editing team names
+  - Includes sorting and filtering support for Short Name column
+- feat(orgchart): Add visual distinction for virtual team members
+  - Virtual team members now display with light blue background accent (#f0f8ff)
+  - Helps identify cross-functional team assignments in organization chart
+- feat(extension): Add unified StorageManager abstraction layer
+  - Provides consistent API across chrome.storage and localStorage backends
+  - Automatically selects appropriate backend based on environment
+  - Includes comprehensive test suite for validation
+- feat(sync): Add team-db-sync module for local/server synchronization
+  - Implements optimistic concurrency control with conflict detection
+  - Tracks pending changes per entity (people/teams/projects)
+  - Provides saveToServer with force flag for conflict resolution
+
+Changed
+-------
+- perf(database): Always export team short_name field to YAML to ensure persistence
+  - Short names are now consistently saved even when empty
+  - Fixes issue where short names disappeared when switching tabs
+- refactor(database): Include short_name in getAllTeams() method output
+  - Ensures UI tables receive complete team data including short names
+- refactor(database): Enhanced loadYamlData to accept both YAML strings and parsed objects
+  - Supports server JSON responses in addition to YAML file content
+  - Improved error handling with descriptive messages
+
+Fixed
+-----
+- fix(teams): Short names now persist correctly across tab changes
+  - Root cause: conditional export only saved non-empty short names
+  - Solution: always export short_name field with empty string default
+- fix(extension): Improved server-only mode error handling
+  - Extension gracefully handles missing local database.yaml file
+  - Enhanced error messages when no database source is available
+- fix(people): Virtual teams now display in correct column
+  - Changed from getPersonTeam() search to direct person.team_name property
+  - Prevents virtual teams from appearing in primary Team column
+- fix(ui): Pending row styling now clears after successful save
+  - Added clearLocal() and clearPendingChanges() calls to save handlers
+  - Applies to both People and Teams tabs
+
+Security
+--------
+- security(server): Add validation for team short_name field in database schema
+  - Server validates short_name as optional string field
+  - Ensures data integrity for team metadata
+
+Notes
+-----
+- To fill this section automatically with the commits pending merge to main:
+    git fetch origin
+    git log --no-merges --pretty=format:"- %s (%h)" origin/main..HEAD
+- Replace each placeholder line above with the corresponding commit message(s) or move them to the appropriate section.
+- When releasing, rename "Unreleased" to "vX.Y.Z - YYYY-MM-DD" and add a new "Unreleased" heading.
+
+
+v2.1.0 - 2026-01-07
+===================
+
+Added
+-----
+- feat(server): Implement Team DB Service with FastAPI backend (commit: f39c917)
+  - Added FastAPI service for managing team database with REST API endpoints
+  - Endpoints: GET/PUT /api/teamdb for database operations, POST /api/token for authentication
+  - Integrated YAML-based server configuration with CORS middleware support
+  - Implemented file-based storage backend with automatic backups (max 10 backups retained)
+  - Added optimistic concurrency control using X-Client-Modified-At headers
+  - Includes conflict detection returning 412 status on stale updates
+- feat(extension): Integrate TeamDB server settings and synchronization (commit: f39c917)
+  - Added server configuration UI in extension options (URL, email, token)
+  - Implemented token request functionality from localhost
+  - Enhanced export to support both file download and server upload
+  - Added notification system for user feedback on save/export operations
+  - Introduced pending changes indicator with save/discard actions
+- feat(orgchart): Add export mode with generated timestamp footer (commit: e99d6fa)
+  - Organization chart downloads now include generation timestamp
+  - Conditional footer rendering (only in export mode, not in UI view)
+  - Styled footer with subtle background and border
+- feat(calendar): Add generated timestamp footer to standalone calendar HTML (commit: a7209d2)
+  - Calendar exports include generation timestamp for version tracking
+  - Consistent styling with organization chart footer
+
+Changed
+-------
+- refactor(extension): Enhanced database loading with multi-source fallback strategy
+  - Priority: server → local file → cached data
+  - Improved error handling with descriptive failure messages
+  - Better logging for debugging data source resolution
+- refactor(ui): Restructured save/export buttons with dropdown menus
+  - Primary action buttons with secondary options in dropdowns
+  - Separate export destinations: "Save to File" and "Save to Server"
+  - Visual feedback for pending changes state
+- refactor(styles): Enhanced table styling for pending row indicators
+  - Yellow background for unsaved changes
+  - Pulse animation on pending rows
+  - Clear visual distinction between saved and unsaved data
+
+Fixed
+-----
+- fix(extension): Improved orgchart-ui integration with export mode parameter
+  - Fixed missing exportMode argument in generateOrgChartHtml calls
+  - Ensures UI view doesn't show timestamp footer
+
+Security
+--------
+- security(server): Token-based authentication for database modifications
+  - PBKDF2 password hashing with 100,000 iterations
+  - Secure token storage in JSON files with salt and hash
+  - Localhost-only token generation endpoint for security
+
+Notes
+-----
+- Breaking changes: Server integration requires configuration in extension options
+- Migration: Existing local database files continue to work as fallback
+- Dependencies: FastAPI server requires Python 3.8+ with fastapi, uvicorn, pyyaml

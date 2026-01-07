@@ -564,7 +564,10 @@ export async function showAbsenceTab() {
         initializeTableHandlers();
     } catch (error) {
         console.error('Error loading absence UI:', error);
-        tab.innerHTML = 'Error loading absence data.';
+        tab.innerHTML = `<div class="uk-alert-danger" uk-alert>
+            <p><strong>Error loading absence data:</strong> ${error.message}</p>
+            <p>Please check that either a server URL is configured or a local database file is available.</p>
+        </div>`;
     }
 }
 

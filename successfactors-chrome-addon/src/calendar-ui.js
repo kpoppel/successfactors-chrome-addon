@@ -37,6 +37,9 @@ export async function showCalendarTab() {
         
     } catch (error) {
         console.error('Error generating calendar:', error);
-        tab.innerHTML = '<div>Error loading calendar. Please check the console for details.</div>';
+        tab.innerHTML = `<div class="uk-alert-danger" uk-alert>
+            <p><strong>Error loading calendar:</strong> ${error.message}</p>
+            <p>Please check that either a server URL is configured or a local database file is available.</p>
+        </div>`;
     }
 }

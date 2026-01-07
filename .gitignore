@@ -10,6 +10,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Files never to commit
+server/data/
+server/teamdb_config.yaml
+
 # Environments
 .env
 .venv

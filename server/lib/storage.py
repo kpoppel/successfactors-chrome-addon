@@ -20,7 +20,7 @@ class FileStorageBackend:
             os.makedirs(data_dir, exist_ok=True)
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        # storage mode: 'pickle' (binary pickled objects) or 'text' (plaintext files)
+        # storage mode: 'pickle' (binary pickled objects), 'text' (plaintext files), or 'json'
         self.mode = "pickle"
 
     def _ns_dir(self, namespace: str) -> Path:
@@ -33,6 +33,8 @@ class FileStorageBackend:
         ns = self._ns_dir(namespace)
         if self.mode == "text":
             return ns / f"{safe_key}"
+        if self.mode == "json":
+            return ns / f"{safe_key}.json"
         return ns / f"{safe_key}.pkl"
 
     def save(self, namespace: str, key: str, value: Any) -> None:
@@ -42,6 +44,13 @@ class FileStorageBackend:
             # write plaintext (assume `value` is str)
             with open(tmp, "w", encoding="utf-8") as f:
                 f.write(value)
+                f.flush()
+                os.fsync(f.fileno())
+        elif self.mode == "json":
+            import json
+            # write JSON atomically
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(value, f, ensure_ascii=False, indent=2)
                 f.flush()
                 os.fsync(f.fileno())
         else:
@@ -60,6 +69,12 @@ class FileStorageBackend:
                 data = f.read()
                 logger.debug("Loaded text %s", path)
                 return data
+        if self.mode == "json":
+            import json
+            with open(path, "r", encoding="utf-8") as f:
+                obj = json.load(f)
+                logger.debug("Loaded json %s: %s", path, type(obj))
+                return obj
         with open(path, "rb") as f:
             obj = pickle.load(f)
             logger.debug("Loaded %s: %s", path, type(obj))
@@ -83,6 +98,6 @@ class FileStorageBackend:
     def configure(self, **options) -> None:
         mode = options.get("mode")
         if mode:
-            if mode not in ("pickle", "text"):
+            if mode not in ("pickle", "text", "json"):
                 raise ValueError("unsupported mode: %s" % mode)
             self.mode = mode

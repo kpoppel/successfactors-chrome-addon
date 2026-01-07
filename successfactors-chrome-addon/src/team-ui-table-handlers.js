@@ -45,8 +45,10 @@ function sortTable(columnName, tableId) {
     if (tableId === 'teamsTable') {
         columnIndex = {
             'name': 0,
-            'product_owner': 1,
-            'functional_manager': 2
+            'short_name': 1,
+            'assigned': 2,
+            'product_owner': 3,
+            'functional_manager': 4
         }[columnName];
     } else if (tableId === 'projectsTable') {
         columnIndex = {
@@ -61,29 +63,23 @@ function sortTable(columnName, tableId) {
     rows.sort((a, b) => {
         const aCell = a.cells[columnIndex];
         const bCell = b.cells[columnIndex];
-        
-        let aText = '';
-        let bText = '';
-        
-        // Check if cells contain select elements
+
+        // Determine text/value to compare
         const aSelect = aCell?.querySelector('select');
         const bSelect = bCell?.querySelector('select');
-        
-        if (aSelect) {
-            // For select elements, get the selected option value or text
-            aText = aSelect.value || '';
-        } else {
-            aText = aCell?.textContent?.trim() || '';
+
+        let aVal = aSelect ? (aSelect.value || '') : (aCell?.textContent?.trim() || '');
+        let bVal = bSelect ? (bSelect.value || '') : (bCell?.textContent?.trim() || '');
+
+        // Numeric sort for assigned column
+        if (columnName === 'assigned') {
+            const aNum = parseInt(aVal, 10) || 0;
+            const bNum = parseInt(bVal, 10) || 0;
+            const cmp = aNum - bNum;
+            return currentSortDirection === 'asc' ? cmp : -cmp;
         }
-        
-        if (bSelect) {
-            // For select elements, get the selected option value or text
-            bText = bSelect.value || '';
-        } else {
-            bText = bCell?.textContent?.trim() || '';
-        }
-        
-        const comparison = aText.localeCompare(bText, undefined, { numeric: true });
+
+        const comparison = aVal.localeCompare(bVal, undefined, { numeric: true });
         return currentSortDirection === 'asc' ? comparison : -comparison;
     });
 
@@ -102,8 +98,9 @@ function filterTable(tableId) {
     if (tableId === 'teamsTable') {
         columnIndices = {
             'name': 0,
-            'product_owner': 1,
-            'functional_manager': 2
+            'short_name': 1,
+            'product_owner': 3,
+            'functional_manager': 4
         };
     } else if (tableId === 'projectsTable') {
         columnIndices = {

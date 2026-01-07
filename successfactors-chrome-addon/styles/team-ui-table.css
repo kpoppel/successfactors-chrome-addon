@@ -192,6 +192,12 @@
     border-color: #666;
 }
 
+/* Visual indication for rows with local pending changes */
+.pending-row {
+    background-color: #fff4e5 !important;
+    border-left: 4px solid #ffb74d;
+}
+
 .add-team-button, .add-project-button {
     cursor: pointer;
     border: none;

@@ -1,17 +1,22 @@
 // src/team-ui.js
 // Renders tables for teams and projects with Name, Product Owner, Functional Manager, and Project Lead.
-import { getDatabase, showNotification } from './common.js';
+import { getDatabase, showNotification, reloadDatabase } from './common.js';
+import { addPendingChange, loadPendingChanges, saveToServer as saveToServerCommon, loadLocal } from './team-db-sync.js';
 import { initializeTeamTableHandlers, resetTeamTableInitialization } from './team-ui-table-handlers.js';
+import { storageManager } from './storage-manager.js';
 
 class TeamTableGenerator {
     constructor(db) {
         this.db = db;
         this.managers = db.getAllManagers();
         this.people = db.getAllPeople().map(p => p.name);
+        this._pendingPromise = loadPendingChanges();
         console.log('Database loaded for team UI:', this.db);
     }
 
     async generateTeamUI() {
+        // Await pending changes
+        this._pending = await this._pendingPromise;
         // Load template
         const templateResponse = await fetch(chrome.runtime.getURL('templates/team-ui-table.html'));
         let template = await templateResponse.text();
@@ -40,8 +45,12 @@ class TeamTableGenerator {
     }
 
     generateTeamRow(team) {
+        const assignedCount = Array.isArray(team.members) ? team.members.length : 0;
+        const pending = (this._pending && this._pending.teams && this._pending.teams.includes(team.name));
         const cells = [
             { value: team.name || '', editable: true },
+            { value: team.short_name || '', editable: true },
+            { value: String(assignedCount), editable: false },
             { value: team.product_owner || '', options: this.people },
             { value: team.functional_manager || '', options: this.managers }
         ];
@@ -49,7 +58,7 @@ class TeamTableGenerator {
         const cellsHtml = cells.map(cell => this.generateTableCell(cell)).join('');
         const deleteButton = '<td><button class="table-button delete-team" title="Delete team">🗑️</button></td>';
         
-        return `<tr data-teamname="${team.name}">${cellsHtml}${deleteButton}</tr>`;
+        return `<tr class="${pending ? 'pending-row' : ''}" data-teamname="${team.name}">${cellsHtml}${deleteButton}</tr>`;
     }
 
     generateProjectRow(project) {
@@ -103,7 +112,9 @@ export async function showTeamTab() {
         const tableHtml = await tableGenerator.generateTeamUI();
         
         tab.innerHTML = tableHtml;
-        setupExportButton(tab, db);
+        await setupExportButton(tab, db);
+
+        // Rows with pending changes are highlighted inline; use the main Save button to persist to server.
 
         // Add event handlers after the tables are rendered
         addEventHandlers(db);
@@ -111,11 +122,14 @@ export async function showTeamTab() {
         initializeTeamTableHandlers();
     } catch (error) {
         console.error('Error loading team UI:', error);
-        tab.innerHTML = 'Error loading team data.';
+        tab.innerHTML = `<div class="uk-alert-danger" uk-alert>
+            <p><strong>Error loading team data:</strong> ${error.message}</p>
+            <p>Please check that either a server URL is configured or a local database file is available.</p>
+        </div>`;
     }
 }
 
-function setupExportButton(container, db) {
+async function setupExportButton(container, db) {
     const primary = container.querySelector('#exportPrimary');
     const toggle = container.querySelector('#exportToggleTeam');
     const dropdown = container.querySelector('#exportDropdownTeam');
@@ -154,40 +168,28 @@ function setupExportButton(container, db) {
         }
     }
 
-    async function saveToServer(yaml) {
-        return new Promise((resolve, reject) => {
-            chrome.storage.local.get(['server_url', 'teamdb_email', 'teamdb_token'], async (items) => {
-                const serverUrl = (items.server_url || '').replace(/\/$/, '') || null;
-                if (!serverUrl) return reject(new Error('No server_url configured'));
-                try {
-                    const url = serverUrl + '/api/teamdb';
-                    const headers = { 'Content-Type': 'application/json' };
-                    if (items.teamdb_email) headers['X-TeamDB-Email'] = items.teamdb_email;
-                    if (items.teamdb_token) headers['X-TeamDB-Token'] = items.teamdb_token;
-                    let payload = null;
-                    try {
-                        payload = jsyaml.load(yaml);
-                    } catch (e) {
-                        payload = yaml;
-                    }
-                    const resp = await fetch(url, { method: 'PUT', headers, body: JSON.stringify(payload) });
-                    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-                    resolve(await resp.json().catch(() => ({})));
-                } catch (err) {
-                    reject(err);
-                }
-            });
-        });
-    }
-
     async function doPrimaryAction() {
         const yaml = db.exportToYaml();
-        const items = await new Promise(res => chrome.storage.local.get(['server_url'], r => res(r)));
-        if (items.server_url) {
+        const items = await storageManager.getMultiple(['server_url', 'teamdb_email', 'teamdb_token']);
+        const serverUrl = items.server_url;
+        if (serverUrl) {
             try {
-                const result = await saveToServer(yaml);
+                // Prepare local entry for common saveToServer function
+                const localEntry = await loadLocal();
+                if (!localEntry) {
+                    throw new Error('No local data to save');
+                }
+                const result = await saveToServerCommon(localEntry, serverUrl, items.teamdb_email, items.teamdb_token);
                 const message = result.message || 'Saved to server';
                 showNotification(true, message);
+                // refresh the database in-place so pending-row highlights are removed
+                try {
+                    await reloadDatabase();
+                    await showTeamTab();
+                } catch (e) {
+                    console.warn('In-place reload failed, falling back to full reload:', e);
+                    location.reload();
+                }
             } catch (err) {
                 console.error('Save to server failed:', err);
                 showNotification(false, 'Save to server failed: ' + err.message);
@@ -218,23 +220,21 @@ function setupExportButton(container, db) {
     });
 
     // Set primary label and dropdown visibility based on configured server_url
-    chrome.storage.local.get(['server_url'], (items) => {
-        const serverUrl = (items.server_url || '').trim();
-        const hasServer = serverUrl.length > 0;
-        if (hasServer) {
-            primary.textContent = 'Save to Server';
-            primary.title = 'Save to Server';
-            toggle.style.display = 'flex';
-            if (saveFile) saveFile.style.display = 'block';
-            if (saveServer) saveServer.style.display = 'none';
-        } else {
-            primary.textContent = 'Save to File';
-            primary.title = 'Save to File';
-            toggle.style.display = 'none';
-            if (saveFile) saveFile.style.display = 'none';
-            if (saveServer) saveServer.style.display = 'block';
-        }
-    });
+    const serverUrl = await storageManager.get('server_url', '');
+    const hasServer = serverUrl.trim().length > 0;
+    if (hasServer) {
+        primary.textContent = 'Save to Server';
+        primary.title = 'Save to Server';
+        toggle.style.display = 'flex';
+        if (saveFile) saveFile.style.display = 'block';
+        if (saveServer) saveServer.style.display = 'none';
+    } else {
+        primary.textContent = 'Save to File';
+        primary.title = 'Save to File';
+        toggle.style.display = 'none';
+        if (saveFile) saveFile.style.display = 'none';
+        if (saveServer) saveServer.style.display = 'block';
+    }
 
     primary.addEventListener('click', async () => {
         await doPrimaryAction();
@@ -259,7 +259,12 @@ function setupExportButton(container, db) {
             dropdown.style.display = 'none';
             const yaml = db.exportToYaml();
             try {
-                const result = await saveToServer(yaml);
+                const items = await storageManager.getMultiple(['server_url', 'teamdb_email', 'teamdb_token']);
+                const localEntry = await loadLocal();
+                if (!localEntry) {
+                    throw new Error('No local data to save');
+                }
+                const result = await saveToServerCommon(localEntry, items.server_url, items.teamdb_email, items.teamdb_token);
                 const message = result.message || 'Saved to server';
                 showNotification(true, message);
             } catch (err) {
@@ -274,14 +279,17 @@ function addEventHandlers(db) {
     // Add new team handler
     const addTeamButton = document.querySelector('.add-team-button');
     if (addTeamButton) {
-        addTeamButton.addEventListener('click', () => {
+        addTeamButton.addEventListener('click', async () => {
+            const newTeamName = 'New Team';
             const newTeamData = {
-                name: 'New Team',
+                name: newTeamName,
+                short_name: db.generateShortName(newTeamName),
                 product_owner: '',
                 functional_manager: ''
             };
             
             db.addTeam(newTeamData);
+            await addPendingChange('teams', newTeamData.name);
             // Refresh the team tab
             showTeamTab();
         });
@@ -305,12 +313,13 @@ function addEventHandlers(db) {
     // Add delete team handlers
     const deleteTeamButtons = document.querySelectorAll('.delete-team');
     deleteTeamButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
+        button.addEventListener('click', async (e) => {
             const row = e.target.closest('tr');
             const teamName = row.dataset.teamname;
             
             if (confirm(`Are you sure you want to delete the team "${teamName}"?`)) {
                 db.removeTeam(teamName);
+                await addPendingChange('teams', teamName);
                 row.remove();
             }
         });
@@ -363,7 +372,7 @@ function addEventHandlers(db) {
     });
 }
 
-function handleTeamCellEdit(cell, db) {
+async function handleTeamCellEdit(cell, db) {
     const row = cell.closest('tr');
     const teamName = row.dataset.teamname;
     const columnIndex = Array.from(row.cells).indexOf(cell);
@@ -371,8 +380,9 @@ function handleTeamCellEdit(cell, db) {
     // Map column index to property name
     const propertyMap = {
         0: 'name',
-        1: 'product_owner',
-        2: 'functional_manager'
+        1: 'short_name',
+        3: 'product_owner',
+        4: 'functional_manager'
     };
 
     const property = propertyMap[columnIndex];
@@ -383,15 +393,27 @@ function handleTeamCellEdit(cell, db) {
         [property]: newValue
     };
 
-    // If name is being changed, update the dataset attribute
-    if (property === 'name') {
+    // If name is being changed, auto-suggest short name if short_name is empty
+    if (property === 'name' && newValue) {
+        const shortNameCell = row.cells[1]; // Short Name is column index 1
+        const currentShortName = shortNameCell.textContent.trim();
+        
+        // Only auto-suggest if short name is empty
+        if (!currentShortName) {
+            const suggestedShortName = db.generateShortName(newValue);
+            shortNameCell.textContent = suggestedShortName;
+            updates.short_name = suggestedShortName;
+        }
+        
         row.dataset.teamname = newValue;
     }
 
     db.updateTeam(teamName, updates);
+    await addPendingChange('teams', updates.name || teamName);
+    try { row.classList.add('pending-row'); } catch (e) {}
 }
 
-function handleProjectCellEdit(cell, db) {
+async function handleProjectCellEdit(cell, db) {
     const row = cell.closest('tr');
     const projectName = row.dataset.projectname;
     const columnIndex = Array.from(row.cells).indexOf(cell);
@@ -416,16 +438,18 @@ function handleProjectCellEdit(cell, db) {
     }
 
     db.updateProject(projectName, updates);
+    await addPendingChange('projects', updates.name || projectName);
+    try { row.classList.add('pending-row'); } catch (e) {}
 }
 
-function handleTeamSelectChange(select, db) {
+async function handleTeamSelectChange(select, db) {
     const row = select.closest('tr');
     const teamName = row.dataset.teamname;
     const columnIndex = Array.from(row.cells).indexOf(select.closest('td'));
     
     const propertyMap = {
-        1: 'product_owner',
-        2: 'functional_manager'
+        3: 'product_owner',
+        4: 'functional_manager'
     };
 
     const property = propertyMap[columnIndex];
@@ -436,6 +460,8 @@ function handleTeamSelectChange(select, db) {
     };
 
     db.updateTeam(teamName, updates);
+    await addPendingChange('teams', teamName);
+    try { select.closest('tr').classList.add('pending-row'); } catch (e) {}
 }
 
 function handleProjectSelectChange(select, db) {

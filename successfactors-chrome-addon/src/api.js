@@ -1,4 +1,5 @@
 import { downloadFile } from './common.js';
+import { storageManager } from './storage-manager.js';
 
 // Debug flag - set to true to use local test data instead of API calls
 const DEBUG_MODE = false;
@@ -27,7 +28,7 @@ export async function fetchRawData(initial_userid, more_userids, from_date, to_d
     }
 
     // Store the data in local storage
-    chrome.storage.local.set({ absence_data: finalData }, function () {});
+    await storageManager.set('absence_data', finalData);
 }
 
 async function loadDebugData() {

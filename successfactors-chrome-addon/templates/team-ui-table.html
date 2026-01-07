@@ -12,6 +12,17 @@
                                 <input type="text" class="column-search" data-column="name" placeholder="Search...">
                             </div>
                         </th>
+                        <th data-column="short_name">
+                            <div class="header-content">
+                                <div class="header-title">Short Name<span class="sort-indicator"></span></div>
+                                <input type="text" class="column-search" data-column="short_name" placeholder="Search...">
+                            </div>
+                        </th>
+                        <th data-column="assigned">
+                            <div class="header-content">
+                                <div class="header-title">Assigned<span class="sort-indicator"></span></div>
+                            </div>
+                        </th>
                         <th data-column="product_owner">
                             <div class="header-content">
                                 <div class="header-title">Product Owner<span class="sort-indicator"></span></div>
@@ -65,6 +76,7 @@
 
     <div class="export-container">
         <div class="export-button-group">
+            <!-- Pending indicator and separate save button removed; rows show pending inline -->
             <button class="export-button export-primary" id="exportPrimary">Export</button>
             <button class="export-button export-toggle" id="exportToggleTeam" aria-label="Toggle export options">
                 <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor">

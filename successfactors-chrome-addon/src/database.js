@@ -97,11 +97,30 @@ export default class Database {
     }
 
     /**
+     * Generates a short name suggestion from a team name
+     * Rules: First 3 letters in uppercase, '&' or 'and' becomes 'N'
+     */
+    generateShortName(teamName) {
+        if (!teamName) return '';
+        
+        // Replace ' & ' or ' and ' with 'N'
+        let processed = teamName
+            .replace(/\s+&\s+/gi, 'N')
+            .replace(/\s+and\s+/gi, 'N');
+        
+        // Remove special characters and spaces, take first 3 letters
+        processed = processed.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase();
+        
+        return processed;
+    }
+
+    /**
      * Normalizes team data by setting default values
      */
     normalizeTeam(teamName, virtual = false) {
         return {
             name: teamName,
+            short_name: '',
             members: new Set(),
             virtual: Boolean(virtual)
         };
@@ -148,14 +167,27 @@ export default class Database {
      * Loads data from the YAML database file
      */
     loadYamlData(yamlData) {
-        const data = jsyaml.load(yamlData);
+        let data = null;
+        if (typeof yamlData === 'string') {
+            data = jsyaml.load(yamlData);
+        } else if (yamlData && typeof yamlData === 'object') {
+            // Already-parsed object (e.g. received from server as JSON)
+            data = yamlData;
+        } else {
+            throw new Error('Invalid database input; expected YAML string or object');
+        }
         this._lastGeneratedId = 0;  // Reset ID counter before loading
 
         // Load teams first to ensure they exist
+        if (!data || !data.database) {
+            throw new Error('Database object missing required "database" key');
+        }
+
         if (data.database.teams) {
             for (const teamData of data.database.teams) {
                 this.teams.set(teamData.name, {
                     name: teamData.name,
+                    short_name: teamData.short_name || '',
                     members: new Set(),
                     extended_members: teamData.extended_members || [],
                     product_owner: teamData.product_owner || '',
@@ -275,14 +307,14 @@ export default class Database {
                 .map(team => {
                 // Create basic team structure
                 const teamData = {
-                    name: team.name
+                    name: team.name,
+                    short_name: team.short_name || '',
+                    functional_manager: team.functional_manager || ''
                 };
                 // Only add product_owner if it exists
                 if (team.product_owner) {
                     teamData.product_owner = team.product_owner;
                 }
-                // Always add functional_manager (empty string if not set)
-                teamData.functional_manager = team.functional_manager || '';
                 return teamData;
                 }),
             projects: (this.projects || []).map(project => ({
@@ -562,6 +594,7 @@ export default class Database {
     getAllTeams() {
         return Array.from(this.teams.values()).map(team => ({
             name: team.name,
+            short_name: team.short_name || '',
             product_owner: team.product_owner || '',
             functional_manager: team.functional_manager || '',
             members: Array.from(team.members || []),
@@ -639,6 +672,7 @@ export default class Database {
      */
     addTeam(teamData) {
         const normalizedTeam = this.normalizeTeam(teamData.name, teamData.virtual || false);
+        normalizedTeam.short_name = teamData.short_name || '';
         normalizedTeam.product_owner = teamData.product_owner || '';
         normalizedTeam.functional_manager = teamData.functional_manager || '';
         
