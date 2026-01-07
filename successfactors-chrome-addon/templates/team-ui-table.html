@@ -64,6 +64,17 @@
     </div>
 
     <div class="export-container">
-        <button class="export-button" id="exportButton">Export Database</button>
+        <div class="export-button-group">
+            <button class="export-button export-primary" id="exportPrimary">Export</button>
+            <button class="export-button export-toggle" id="exportToggleTeam" aria-label="Toggle export options">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor">
+                    <path d="M0 0l5 6 5-6z"/>
+                </svg>
+            </button>
+            <div class="export-dropdown" id="exportDropdownTeam" style="display: none;">
+                <button class="export-dropdown-item" id="save-to-file-team">Save to File</button>
+                <button class="export-dropdown-item" id="save-to-server-team">Save to Server</button>
+            </div>
+        </div>
     </div>
 </div>

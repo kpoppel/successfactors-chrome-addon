@@ -1,6 +1,6 @@
 // src/team-ui.js
 // Renders tables for teams and projects with Name, Product Owner, Functional Manager, and Project Lead.
-import { getDatabase } from './common.js';
+import { getDatabase, showNotification } from './common.js';
 import { initializeTeamTableHandlers, resetTeamTableInitialization } from './team-ui-table-handlers.js';
 
 class TeamTableGenerator {
@@ -116,46 +116,158 @@ export async function showTeamTab() {
 }
 
 function setupExportButton(container, db) {
-    const exportButton = container.querySelector('.export-button');
-    if (!exportButton) return;
+    const primary = container.querySelector('#exportPrimary');
+    const toggle = container.querySelector('#exportToggleTeam');
+    const dropdown = container.querySelector('#exportDropdownTeam');
+    const saveFile = container.querySelector('#save-to-file-team');
+    const saveServer = container.querySelector('#save-to-server-team');
+    if (!primary || !toggle || !dropdown) return;
 
-    exportButton.addEventListener('click', async () => {
-        try {
-            const yaml = db.exportToYaml();
-            
-            // Use File System Access API if available
-            if ('showSaveFilePicker' in window) {
+    async function saveToFile(yaml) {
+        if ('showSaveFilePicker' in window) {
+            try {
                 const handle = await window.showSaveFilePicker({
-                    //startIn: '', // TODO: specify a starting directory ex. based on a setting telling where the extension is installed
                     suggestedName: 'database.yaml',
                     types: [{
                         description: 'YAML File',
-                        accept: {
-                            'application/x-yaml': ['.yaml', '.yml']
-                        }
+                        accept: { 'application/x-yaml': ['.yaml', '.yml'] }
                     }]
                 });
-                
                 const writable = await handle.createWritable();
                 await writable.write(yaml);
                 await writable.close();
-            } else {
-                // Fallback for browsers without File System Access API
-                const blob = new Blob([yaml], { type: 'application/x-yaml' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'database.yaml';
-                a.click();
-                URL.revokeObjectURL(url);
+            } catch (err) {
+                if (err && err.name === 'AbortError') {
+                    showNotification(false, 'Save canceled');
+                    return;
+                }
+                throw err;
             }
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                console.error('Failed to export:', err);
-                alert('Export failed. Please try again.');
+        } else {
+            const blob = new Blob([yaml], { type: 'application/x-yaml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'database.yaml';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    }
+
+    async function saveToServer(yaml) {
+        return new Promise((resolve, reject) => {
+            chrome.storage.local.get(['server_url', 'teamdb_email', 'teamdb_token'], async (items) => {
+                const serverUrl = (items.server_url || '').replace(/\/$/, '') || null;
+                if (!serverUrl) return reject(new Error('No server_url configured'));
+                try {
+                    const url = serverUrl + '/api/teamdb';
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (items.teamdb_email) headers['X-TeamDB-Email'] = items.teamdb_email;
+                    if (items.teamdb_token) headers['X-TeamDB-Token'] = items.teamdb_token;
+                    let payload = null;
+                    try {
+                        payload = jsyaml.load(yaml);
+                    } catch (e) {
+                        payload = yaml;
+                    }
+                    const resp = await fetch(url, { method: 'PUT', headers, body: JSON.stringify(payload) });
+                    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+                    resolve(await resp.json().catch(() => ({})));
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    async function doPrimaryAction() {
+        const yaml = db.exportToYaml();
+        const items = await new Promise(res => chrome.storage.local.get(['server_url'], r => res(r)));
+        if (items.server_url) {
+            try {
+                const result = await saveToServer(yaml);
+                const message = result.message || 'Saved to server';
+                showNotification(true, message);
+            } catch (err) {
+                console.error('Save to server failed:', err);
+                showNotification(false, 'Save to server failed: ' + err.message);
+            }
+        } else {
+            try {
+                await saveToFile(yaml);
+                showNotification(true, 'Saved to file');
+            } catch (err) {
+                console.error('Save to file failed:', err);
+                showNotification(false, 'Save to file failed: ' + err.message);
             }
         }
+    }
+
+    // Toggle dropdown visibility
+    toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = dropdown.style.display === 'block';
+        dropdown.style.display = isVisible ? 'none' : 'block';
     });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // Set primary label and dropdown visibility based on configured server_url
+    chrome.storage.local.get(['server_url'], (items) => {
+        const serverUrl = (items.server_url || '').trim();
+        const hasServer = serverUrl.length > 0;
+        if (hasServer) {
+            primary.textContent = 'Save to Server';
+            primary.title = 'Save to Server';
+            toggle.style.display = 'flex';
+            if (saveFile) saveFile.style.display = 'block';
+            if (saveServer) saveServer.style.display = 'none';
+        } else {
+            primary.textContent = 'Save to File';
+            primary.title = 'Save to File';
+            toggle.style.display = 'none';
+            if (saveFile) saveFile.style.display = 'none';
+            if (saveServer) saveServer.style.display = 'block';
+        }
+    });
+
+    primary.addEventListener('click', async () => {
+        await doPrimaryAction();
+    });
+
+    if (saveFile) {
+        saveFile.addEventListener('click', async () => {
+            dropdown.style.display = 'none';
+            const yaml = db.exportToYaml();
+            try {
+                await saveToFile(yaml);
+                showNotification(true, 'Saved to file');
+            } catch (err) {
+                console.error(err);
+                showNotification(false, 'Save to file failed: ' + err.message);
+            }
+        });
+    }
+
+    if (saveServer) {
+        saveServer.addEventListener('click', async () => {
+            dropdown.style.display = 'none';
+            const yaml = db.exportToYaml();
+            try {
+                const result = await saveToServer(yaml);
+                const message = result.message || 'Saved to server';
+                showNotification(true, message);
+            } catch (err) {
+                console.error(err);
+                showNotification(false, 'Save to server failed: ' + err.message);
+            }
+        });
+    }
 }
 
 function addEventHandlers(db) {

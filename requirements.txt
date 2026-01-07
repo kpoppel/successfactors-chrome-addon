@@ -1,0 +1,8 @@
+pyYAML
+azure-devops
+requests
+uvicorn
+fastapi
+httpx
+brotli
+brotli-asgi

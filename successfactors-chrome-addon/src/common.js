@@ -41,6 +41,35 @@ export async function loadDatabase() {
     initializationPromise = (async () => {
         const db = new Database();
 
+        // Check if server is configured
+        const serverConfig = await new Promise(resolve => {
+            chrome.storage.local.get(['server_url', 'teamdb_email', 'teamdb_token'], items => resolve(items));
+        });
+        
+        const serverUrl = (serverConfig.server_url || '').trim();
+        const hasServer = serverUrl.length > 0;
+        
+        let serverData = null;
+        if (hasServer) {
+            console.log('Server configured, attempting to load database from server:', serverUrl);
+            try {
+                const url = serverUrl.replace(/\/$/, '') + '/api/teamdb';
+                const headers = {};
+                if (serverConfig.teamdb_email) headers['X-TeamDB-Email'] = serverConfig.teamdb_email;
+                if (serverConfig.teamdb_token) headers['X-TeamDB-Token'] = serverConfig.teamdb_token;
+                
+                const resp = await fetch(url, { method: 'GET', headers });
+                if (resp.ok) {
+                    serverData = await resp.text();
+                    console.log('Successfully loaded database from server');
+                } else {
+                    console.warn('Server returned error:', resp.status, resp.statusText, '- falling back to local data');
+                }
+            } catch (err) {
+                console.warn('Failed to load from server:', err.message, '- falling back to local data');
+            }
+        }
+
         // Load both disk and storage YAML for version comparison
         const [storedDatabase, yamlContent] = await Promise.all([
             new Promise(resolve => {
@@ -62,35 +91,51 @@ export async function loadDatabase() {
             }
         }
 
-        const diskVersion = extractVersion(yamlContent);
-        const cacheVersion = extractVersion(storedDatabase);
-        console.log('Disk version:', diskVersion, 'Cache version:', cacheVersion);
+        // Priority: server > storage > disk
+        let selectedSource = 'disk';
+        let selectedData = yamlContent;
+        
+        if (serverData) {
+            selectedSource = 'server';
+            selectedData = serverData;
+            console.log('Using database from server');
+        } else {
+            const diskVersion = extractVersion(yamlContent);
+            const cacheVersion = extractVersion(storedDatabase);
+            console.log('Disk version:', diskVersion, 'Cache version:', cacheVersion);
 
-        let useDisk = false;
-        // If cache is missing or cache version is null, use disk
-        if (!storedDatabase || cacheVersion === null) {
-            useDisk = true;
-        } else if (diskVersion && cacheVersion) {
-            // If disk version is newer (assume numeric or ISO string comparison)
-            if (diskVersion > cacheVersion) {
+            let useDisk = false;
+            // If cache is missing or cache version is null, use disk
+            if (!storedDatabase || cacheVersion === null) {
                 useDisk = true;
+            } else if (diskVersion && cacheVersion) {
+                // If disk version is newer (assume numeric or ISO string comparison)
+                if (diskVersion > cacheVersion) {
+                    useDisk = true;
+                }
+            }
+
+            if (useDisk) {
+                selectedSource = 'disk';
+                selectedData = yamlContent;
+                console.log('Using database from disk (fresh, disk version newer, or cache missing/invalid)');
+            } else {
+                selectedSource = 'storage';
+                selectedData = storedDatabase;
+                console.log('Using database from storage (contains updates, cache version >= disk)');
             }
         }
 
-        if (useDisk) {
-            console.log('Loading database from disk (fresh, disk version newer, or cache missing/invalid)');
-            db.loadYamlData(yamlContent);
-            db._loadedFrom = 'disk';
-            // Save disk version to cache for future loads
+        db.loadYamlData(selectedData);
+        db._loadedFrom = selectedSource;
+        
+        // Save to cache if loaded from server or disk
+        if (selectedSource === 'server' || selectedSource === 'disk') {
             await new Promise(resolve => {
-                chrome.storage.local.set({ database_yaml: yamlContent }, function() {
+                chrome.storage.local.set({ database_yaml: selectedData }, function() {
                     resolve();
                 });
             });
-        } else {
-            console.log('Loading database from storage (contains updates, cache version >= disk)');
-            db.loadYamlData(storedDatabase);
-            db._loadedFrom = 'storage';
         }
 
         // Get holiday data from storage
@@ -113,7 +158,7 @@ export async function loadDatabase() {
             await saveDatabaseToStorage();
         });
 
-        console.log('Database initialized with', db.people.size, 'people from', db._loadedFrom, 'diskVersion:', diskVersion, 'cacheVersion:', cacheVersion);
+        console.log('Database initialized with', db.people.size, 'people from', selectedSource);
         return db;
     })();
 
@@ -207,10 +252,16 @@ export function toggleText(condition, elementId, text) {
 
 export function showNotification(success, message, timeout=3000) {
     const notificationContainer = document.getElementById("notification-container");
+    if (!notificationContainer) {
+        console.warn("Notification container not found, logging message:", message);
+        return;
+    }
+    notificationContainer.style.display = 'block';
     notificationContainer.classList = success ? "uk-text-success" : "uk-text-warning";
     notificationContainer.innerHTML = message;
     setTimeout(() => {
         notificationContainer.innerHTML = "";
+        notificationContainer.style.display = 'none';
         notificationContainer.classList = "uk-text-success";
     }, timeout);
 }

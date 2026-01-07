@@ -96,12 +96,15 @@ chrome.runtime.onMessage.addListener(
     }
     if (request.message === "getOptions") {
       chrome.storage.local.get(
-        ["setup_toggle", "from_date", "to_date"],
+        ["setup_toggle", "from_date", "to_date", "server_url", "teamdb_email", "teamdb_token"],
         function (result) {
           sendResponse({
             "setup_toggle": result.setup_toggle,
             "from_date": result.from_date,
-            "to_date": result.to_date
+            "to_date": result.to_date,
+            "server_url": result.server_url,
+            "teamdb_email": result.teamdb_email,
+            "teamdb_token": result.teamdb_token
           });
         });
       return true; // Important: Keeps the message channel open for sendResponse to be called asynchronously. Without this, the sendResponse function would not work correctly.

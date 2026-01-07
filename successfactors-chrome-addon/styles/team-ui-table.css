@@ -73,19 +73,79 @@
 
 .export-container {
     margin-top: 40px;
-    text-align: center;
+    text-align: left;
+    position: relative;
+}
+
+.export-button-group {
+    display: inline-flex;
+    align-items: stretch;
+    position: relative;
 }
 
 .export-button {
     padding: 8px 16px;
-    background-color: #f5f5f5;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    background-color: #2b8cff;
+    color: white;
+    border: 1px solid #1f6fd9;
     cursor: pointer;
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+}
+
+.export-primary {
+    border-radius: 4px 0 0 4px;
+}
+
+.export-toggle {
+    border-radius: 0 4px 4px 0;
+    padding: 8px 10px;
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .export-button:hover {
-    background-color: #e5e5e5;
+    background-color: #1f6fd9;
+}
+
+.export-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    min-width: 150px;
+    z-index: 1000;
+}
+
+.export-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    background: white;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+    color: #333;
+}
+
+.export-dropdown-item:first-child {
+    border-radius: 4px 4px 0 0;
+}
+
+.export-dropdown-item:last-child {
+    border-radius: 0 0 4px 4px;
+}
+
+.export-dropdown-item:hover {
+    background-color: #f5f5f5;
 }
 
 .header-content {

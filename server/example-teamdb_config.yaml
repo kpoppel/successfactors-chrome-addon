@@ -1,0 +1,13 @@
+# Example configuration for teamdb service
+# Copy this file to `server_config.yml` and update values before starting the service.
+
+# Host and port to bind the service to
+host: 127.0.0.1
+port: 8765
+
+# Root directory for application data (database, backups, token store)
+# Use an absolute path or a path relative to the repository root
+# data_root: ../data
+
+# How many backups to keep when the DB is overwritten
+# max_backups: 10

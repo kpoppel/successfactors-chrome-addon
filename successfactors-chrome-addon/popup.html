@@ -78,15 +78,37 @@
           <label for="from_date" class="uk-text-small">
             From Date (YYYY-MM-DD)
             <br>
-            <input id="from_date" type="text"/>
+            <input id="from_date" name="from_date" type="text"/>
           </label>
           <br>
           <label for="to_date" class="uk-text-small">
             To Date (YYYY-MM-DD)
             <br>
-            <input id="to_date" type="text"/>
+            <input id="to_date" name="to_date" type="text"/>
           </label>
           <br>
+          <label for="server_url" class="uk-text-small">
+            TeamDB Server URL (e.g. http://127.0.0.1:8765)
+            <br>
+            <input id="server_url" name="server_url" type="text"/>
+          </label>
+          <br>
+          <label for="teamdb_email" class="uk-text-small">
+            TeamDB Email
+            <br>
+            <input id="teamdb_email" name="teamdb_email" type="text"/>
+          </label>
+          <br>
+          <label for="teamdb_token" class="uk-text-small">
+            TeamDB Token
+            <br>
+            <input id="teamdb_token" name="teamdb_token" type="text"/>
+          </label>
+          <br>
+          <div class="uk-margin-small">
+            <button id="test-server-button" class="uk-button uk-button-default uk-button-small">Test Server</button>
+            <span id="test-server-result" class="uk-text-small" style="margin-left:8px"></span>
+          </div>
         </form>
       </div>
 
