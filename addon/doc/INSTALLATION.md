@@ -16,7 +16,7 @@
 5. Open Google Chrome or Microsoft Edge and navigate to `chrome://extensions` or `edge://extensions`.
 6. Enable **Developer mode** by toggling the switch in the top-right corner (Edge button on the left side).
 7. Click on the **Load unpacked** button.
-8. Select the folder where you copied the files (`successfactors-chrome-addon`).
+8. Select the folder where you copied the files (`addon`).
 9. The extension will now be installed and visible in your browser extensions list.
 
 # Usage
