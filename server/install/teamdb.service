@@ -1,17 +1,22 @@
-# systemd unit for teamdb.
-# Update the filem then put it in `/etc/systemd/system/teamdb.service`
-# Enable the service: `systemctl enable teamdb`
-# Start the service:  `systemctl start teamdb`
+# systemd unit template for teamdb
+# Copy this file to /etc/systemd/system/teamdb.service and replace the
+# placeholders below, or use the installer `server/install/install.sh`
+
 [Unit]
 Description=SuccessFactor backend service
 After=network.target
- 
+
 [Service]
 Type=simple
-User=planner
-WorkingDirectory=/<path-to>/successfactors-chrome-addon
-ExecStart=/<path-to>/successfactors-chrome-addon/server/install/systemd_runner.sh
+# Set the user that should run the service (example: planner)
+User=%TEAMDB_USER%
+# Set the working directory to the application install directory
+WorkingDirectory=%TEAMDB_INSTALL_DIR%
+# Export the install dir so the runner script can pick it up
+Environment=TEAMDB_INSTALL_DIR=%TEAMDB_INSTALL_DIR%
+# ExecStart should call the runner script inside the install tree
+ExecStart=%TEAMDB_INSTALL_DIR%/server/install/systemd_runner.sh
 Restart=on-failure
- 
+
 [Install]
 WantedBy=multi-user.target
