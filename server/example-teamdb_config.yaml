@@ -7,6 +7,8 @@ port: 8765
 
 # Root directory for application data (database, backups, token store)
 # Use an absolute path or a path relative to the repository root
+# If you start the server from outside the `server` directory, specify the full path:
+# data_root: <path-to-repo-root>/data
 # data_root: ../data
 
 # How many backups to keep when the DB is overwritten
