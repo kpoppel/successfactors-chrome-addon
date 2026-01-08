@@ -1,10 +1,12 @@
-# Files never to add
-*/*/database*.yaml
-*/*/holiday_data.json
-*/*/organisation.yaml
-*/*/teams.yaml
-*/*/config.yaml
-*/*/img/*.jpg
+# Only include the .keep file in img directory
+addon/config/img/*
+!addon/config/img/.keep
+
+addon/config/*.yaml*
+addon/config/*.json*
+!addon/config/config.yaml.tmpl
+!addon/config/database.yaml.tmpl
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -15,12 +17,8 @@ server/data/
 server/teamdb_config.yaml
 
 # Environments
-.env
-.venv
-env/
 venv/
-ENV/
-env.bak/
-venv.bak/
 *.zip
-python/output/*
+tools/python/output/*
+tools/python/config/config.yaml
+tools/python/config/teams.yaml

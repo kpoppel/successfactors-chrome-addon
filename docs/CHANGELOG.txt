@@ -1,0 +1,65 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+This changelog follows "Keep a Changelog" conventions and the Conventional Commits
+
+
+v2.1.0 - 2026-01-07
+===================
+
+Added
+-----
+- feat(server): Implement Team DB Service with FastAPI backend (commit: f39c917)
+  - Added FastAPI service for managing team database with REST API endpoints
+  - Endpoints: GET/PUT /api/teamdb for database operations, POST /api/token for authentication
+  - Integrated YAML-based server configuration with CORS middleware support
+  - Implemented file-based storage backend with automatic backups (max 10 backups retained)
+  - Added optimistic concurrency control using X-Client-Modified-At headers
+  - Includes conflict detection returning 412 status on stale updates
+- feat(extension): Integrate TeamDB server settings and synchronization (commit: f39c917)
+  - Added server configuration UI in extension options (URL, email, token)
+  - Implemented token request functionality from localhost
+  - Enhanced export to support both file download and server upload
+  - Added notification system for user feedback on save/export operations
+  - Introduced pending changes indicator with save/discard actions
+- feat(orgchart): Add export mode with generated timestamp footer (commit: e99d6fa)
+  - Organization chart downloads now include generation timestamp
+  - Conditional footer rendering (only in export mode, not in UI view)
+  - Styled footer with subtle background and border
+- feat(calendar): Add generated timestamp footer to standalone calendar HTML (commit: a7209d2)
+  - Calendar exports include generation timestamp for version tracking
+  - Consistent styling with organization chart footer
+
+Changed
+-------
+- refactor(extension): Enhanced database loading with multi-source fallback strategy
+  - Priority: server → local file → cached data
+  - Improved error handling with descriptive failure messages
+  - Better logging for debugging data source resolution
+- refactor(ui): Restructured save/export buttons with dropdown menus
+  - Primary action buttons with secondary options in dropdowns
+  - Separate export destinations: "Save to File" and "Save to Server"
+  - Visual feedback for pending changes state
+- refactor(styles): Enhanced table styling for pending row indicators
+  - Yellow background for unsaved changes
+  - Pulse animation on pending rows
+  - Clear visual distinction between saved and unsaved data
+
+Fixed
+-----
+- fix(extension): Improved orgchart-ui integration with export mode parameter
+  - Fixed missing exportMode argument in generateOrgChartHtml calls
+  - Ensures UI view doesn't show timestamp footer
+
+Security
+--------
+- security(server): Token-based authentication for database modifications
+  - PBKDF2 password hashing with 100,000 iterations
+  - Secure token storage in JSON files with salt and hash
+  - Localhost-only token generation endpoint for security
+
+Notes
+-----
+- Breaking changes: Server integration requires configuration in extension options
+- Migration: Existing local database files continue to work as fallback
+- Dependencies: FastAPI server requires Python 3.8+ with fastapi, uvicorn, pyyaml
