@@ -156,6 +156,13 @@ async def api_get_teamdb():
             mtime = datetime.utcfromtimestamp(stat.st_mtime).strftime('%Y-%m-%dT%H:%M:%SZ')
         except Exception:
             mtime = None
+        # If the on-disk YAML already contains a top-level 'database' key,
+        # return that document as-is (with last_modified) to avoid double-wrapping
+        if isinstance(data, dict) and 'database' in data:
+            content = dict(data)
+            content['last_modified'] = mtime
+            return JSONResponse(content=content)
+
         return JSONResponse(content={'database': data, 'last_modified': mtime})
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail='Database not found')
