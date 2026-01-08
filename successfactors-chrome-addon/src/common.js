@@ -178,7 +178,30 @@ export async function loadDatabase() {
             }
         }
 
-        db.loadYamlData(selectedData);
+        // Defensive check: selectedData may be null or an unexpected type
+        try {
+            console.log('Selected data source:', selectedSource);
+            if (selectedData === null || selectedData === undefined) {
+                throw new Error('Selected database data is null/undefined');
+            }
+            // If selectedData is a string, ensure it's non-empty
+            if (typeof selectedData === 'string' && selectedData.trim().length === 0) {
+                throw new Error('Selected database data is empty string');
+            }
+
+            // Log a short preview for debugging
+            try {
+                const preview = typeof selectedData === 'string' ? selectedData.substring(0, 200) : JSON.stringify(Object.keys(selectedData || {}).slice(0,10));
+                console.log('Selected data preview:', preview);
+            } catch (e) {
+                console.log('Selected data preview unavailable:', e.message);
+            }
+
+            db.loadYamlData(selectedData);
+        } catch (e) {
+            console.error('Failed to initialize database from selectedData:', e);
+            throw e;
+        }
         db._loadedFrom = selectedSource;
         
         // Save to cache if loaded from server or disk
