@@ -383,15 +383,15 @@ export async function imageToBase64(imagePath) {
 
         const blob = await response.blob();
         const reader = new FileReader();
-        const base64Data = await new Promise(resolve => {
+        const base64Data = await new Promise((resolve, reject) => {
             reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('FileReader failed to read blob'));
             reader.readAsDataURL(blob);
         });
         return base64Data;
     } catch (error) {
-        // TODO: Actually keep the printout when debugging
-        //console.error("Error converting image to Base64:", error);
-        return null;
+        // Rethrow the error so callers can decide how to handle missing images
+        throw error;
     }
 }
 

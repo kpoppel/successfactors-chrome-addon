@@ -16,7 +16,8 @@ export async function generateOrgChartHtml(database, exportMode = false) {
     const userImages = new Map();
     userImages.set('fallback', silhouetteBase64);
 
-    // Load images for all people in the database
+    // Load images for all people in the database. Try several candidate filenames
+    // in order: userId (if applicable), lower-case name with underscores.
     await Promise.all(
         Array.from(database.people.values()).map(async person => {
             if (person.userId) {
