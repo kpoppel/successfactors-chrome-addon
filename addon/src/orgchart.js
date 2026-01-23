@@ -12,7 +12,13 @@ export async function generateOrgChartAndDownload() {
 }
 
 export async function generateOrgChartHtml(database, exportMode = false) {
-    const silhouetteBase64 = await imageToBase64('images/silhouette.jpg');
+    let silhouetteBase64;
+    try {
+        silhouetteBase64 = await imageToBase64('images/silhouette.jpg');
+    } catch (err) {
+        console.warn('WARNING: silhouette image not found, using transparent fallback', err && err.message ? err.message : err);
+        silhouetteBase64 = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+    }
     const userImages = new Map();
     userImages.set('fallback', silhouetteBase64);
 
@@ -21,41 +27,42 @@ export async function generateOrgChartHtml(database, exportMode = false) {
     // 2) config/img/<name_with_underscores_lowercase>.jpg
     await Promise.all(
         Array.from(database.people.values()).map(async person => {
-            if (!person.userId) {
-                console.log(`WARNING: Found a person with no userId: ${person.name}`);
-                return;
-            }
 
-            const tryPaths = [];
-            if (!person.userId.startsWith('ext_')) {
-                tryPaths.push(`config/img/${person.userId}.jpg`);
-            }
-            // Image names will either be the userId or the lowercase name with underscores
+            // Determine lowercase-name key
             const lowerCaseName = person.name.toLowerCase().replace(/\s+/g, '_');
-            tryPaths.push(`config/img/${lowerCaseName}.jpg`);
 
             let image_data = null;
-            const tried = [];
-            for (const p of tryPaths) {
-                tried.push(p);
+
+            // First, attempt userId image when available and not an external id.
+            if (person.userId && !person.userId.startsWith('ext_')) {
+                const path = `config/img/${person.userId}.jpg`;
                 try {
-                    image_data = await imageToBase64(p);
-                    if (image_data) {
-                        console.log(`Loaded image for ${person.name} (${person.userId}) from ${p}`);
-                        break;
-                    }
+                    image_data = await imageToBase64(path);
+                    if (image_data) console.log(`Loaded image for ${person.name} (${person.userId}) from ${path}`);
                 } catch (e) {
-                    // imageToBase64 now throws on missing files - swallow and continue
-                    console.log(`Image not found for ${person.name} (${person.userId}) at ${p}:`, e.message || e);
+                    console.log(`Image not found for ${person.name} (${person.userId}) at ${path}:`, e && e.message ? e.message : e);
+                }
+            }
+
+            // If userId image missing (or userId absent/ext_), always try lowercase-name variant
+            if (!image_data) {
+                const namePath = `config/img/${lowerCaseName}.jpg`;
+                try {
+                    image_data = await imageToBase64(namePath);
+                    if (image_data) console.log(`Loaded image for ${person.name} (${person.userId || 'no-userId'}) from ${namePath}`);
+                } catch (e) {
+                    console.log(`Image not found for ${person.name} at ${namePath}:`, e && e.message ? e.message : e);
                 }
             }
 
             if (!image_data) {
-                console.log(`INFO: Failed to load image for user ${person.name} (${person.userId}) (tried: ${tried.join(', ')}), using fallback`);
+                console.log(`INFO: Failed to load image for user ${person.name} (${person.userId || 'no-userId'}), using fallback`);
                 image_data = silhouetteBase64;
             }
 
-            userImages.set(person.userId, image_data);
+            // Store under both keys where possible so lookups can use either userId or name
+            if (person.userId) userImages.set(person.userId, image_data);
+            userImages.set(lowerCaseName, image_data);
         })
     );
 
