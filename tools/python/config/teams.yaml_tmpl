@@ -13,3 +13,6 @@ teams:
         birthday: ""        # <-- Not sharing the birthday
         title: "Yet another Title"
       - also: "Name One"    # <-- The person is also member of this team
+  # Optional parent team relationship:
+  # - name: "Team 3"
+  #   parent_team: "Team 1"

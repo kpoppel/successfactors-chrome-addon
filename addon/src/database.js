@@ -122,7 +122,8 @@ export default class Database {
             name: teamName,
             short_name: '',
             members: new Set(),
-            virtual: Boolean(virtual)
+            virtual: Boolean(virtual),
+            parent_team: ''
         };
     }
 
@@ -192,7 +193,8 @@ export default class Database {
                     extended_members: teamData.extended_members || [],
                     product_owner: teamData.product_owner || '',
                     functional_manager: teamData.functional_manager || '',
-                    virtual: Boolean(teamData.virtual)
+                    virtual: Boolean(teamData.virtual),
+                    parent_team: teamData.parent_team || ''
                 });
             }
         }
@@ -314,6 +316,10 @@ export default class Database {
                 // Only add product_owner if it exists
                 if (team.product_owner) {
                     teamData.product_owner = team.product_owner;
+                }
+                // Only add parent_team if it exists
+                if (team.parent_team) {
+                    teamData.parent_team = team.parent_team;
                 }
                 return teamData;
                 }),
@@ -598,6 +604,7 @@ export default class Database {
             product_owner: team.product_owner || '',
             functional_manager: team.functional_manager || '',
             members: Array.from(team.members || []),
+            parent_team: team.parent_team || '',
             virtual: team.virtual || false
         }));
     }
@@ -675,6 +682,7 @@ export default class Database {
         normalizedTeam.short_name = teamData.short_name || '';
         normalizedTeam.product_owner = teamData.product_owner || '';
         normalizedTeam.functional_manager = teamData.functional_manager || '';
+        normalizedTeam.parent_team = teamData.parent_team || '';
         
         this.teams.set(teamData.name, normalizedTeam);
 

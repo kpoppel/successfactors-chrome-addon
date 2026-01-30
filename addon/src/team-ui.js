@@ -10,6 +10,8 @@ class TeamTableGenerator {
         this.db = db;
         this.managers = db.getAllManagers();
         this.people = db.getAllPeople().map(p => p.name);
+        // List of team names for parent-team select
+        this.teamOptions = db.getAllTeamNames();
         this._pendingPromise = loadPendingChanges();
         console.log('Database loaded for team UI:', this.db);
     }
@@ -52,7 +54,8 @@ class TeamTableGenerator {
             { value: team.short_name || '', editable: true },
             { value: String(assignedCount), editable: false },
             { value: team.product_owner || '', options: this.people },
-            { value: team.functional_manager || '', options: this.managers }
+            { value: team.functional_manager || '', options: this.managers },
+            { value: team.parent_team || '', options: this.teamOptions.filter(n => n !== team.name) }
         ];
 
         const cellsHtml = cells.map(cell => this.generateTableCell(cell)).join('');
@@ -285,7 +288,8 @@ function addEventHandlers(db) {
                 name: newTeamName,
                 short_name: db.generateShortName(newTeamName),
                 product_owner: '',
-                functional_manager: ''
+                functional_manager: '',
+                parent_team: ''
             };
             
             db.addTeam(newTeamData);
@@ -449,7 +453,8 @@ async function handleTeamSelectChange(select, db) {
     
     const propertyMap = {
         3: 'product_owner',
-        4: 'functional_manager'
+        4: 'functional_manager',
+        5: 'parent_team'
     };
 
     const property = propertyMap[columnIndex];

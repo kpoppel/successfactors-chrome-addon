@@ -93,6 +93,9 @@ export async function generateOrgChartHtml(database, exportMode = false) {
         .member .title { font-size: 12px; margin-top: 5px; text-align: center; width: 100px; word-wrap: break-word; }
         .member.virtual-member { background-color: #f0f8ff; border-radius: 8px; padding: 5px; }
 
+        /* Embedded subteam style - same as .team but dashed border */
+        .team.embedded { border-style: dashed; }
+
         /* Footer for generated timestamp (export only) */
         #generated-footer { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -120,10 +123,30 @@ export async function generateOrgChartHtml(database, exportMode = false) {
 }
 
 function generateTeamBlocks(database, userImages) {
-    return Array.from(database.teams.values())
-        .filter(team => team.members.size > 0) // Only show teams with members
-        .map(team => `
-            <div class="team">
+    // Build parent->children map for teams
+    const parentMap = new Map();
+    for (const [name, team] of database.teams.entries()) {
+        const parent = team.parent_team || '';
+        if (!parentMap.has(parent)) parentMap.set(parent, []);
+        parentMap.get(parent).push(name);
+    }
+
+    // Render root teams (those without parent_team) and recursively render children
+    const roots = parentMap.get('') || [];
+
+    function renderTeamRecursive(teamName, embedded = false) {
+        const team = database.teams.get(teamName);
+        if (!team) return '';
+
+        // Only render teams that have members or child teams
+        const children = parentMap.get(teamName) || [];
+        const hasMembers = team.members && team.members.size > 0;
+        if (!hasMembers && children.length === 0) return '';
+
+        const embeddedClass = embedded ? ' embedded' : '';
+
+        return `
+            <div class="team${embeddedClass}">
                 <h2>${team.name}</h2>
                 <div class="details-container">
                     ${generateTeamLeadership(team, database, userImages)}
@@ -131,8 +154,12 @@ function generateTeamBlocks(database, userImages) {
                 <div class="member-container">
                     ${generateTeamMembers(team, database, userImages)}
                 </div>
+                ${children.length > 0 ? `<div class="subteams-container">${children.map(child => renderTeamRecursive(child, true)).join('')}</div>` : ''}
             </div>
-        `).join('');
+        `;
+    }
+
+    return roots.map(root => renderTeamRecursive(root, false)).join('');
 }
 
 function generateTeamLeadership(team, database, userImages) {

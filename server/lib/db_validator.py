@@ -130,6 +130,9 @@ def validate_database(db: Any) -> None:
             _check_str(team.get('product_owner'), tpath+('product_owner',))
         if 'functional_manager' in team:
             _check_str(team.get('functional_manager'), tpath+('functional_manager',))
+        # Optional parent_team field for nested team relationships
+        if 'parent_team' in team:
+            _check_str(team.get('parent_team'), tpath+('parent_team',))
 
     # Validate projects
     for idx, proj in enumerate(projects):
