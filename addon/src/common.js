@@ -3,16 +3,32 @@ import { loadLocal, saveLocal, clearLocal, saveToServer, hasPending, clearPendin
 import { storageManager } from './storage-manager.js';
 
 let config = null;
+const IS_WEB_ADMIN_UI = typeof window !== 'undefined' && window.__TEAMDB_WEB_UI__ === true;
+
+function runtimeUrl(path) {
+    if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+        return chrome.runtime.getURL(path);
+    }
+    const normalized = String(path || '').replace(/^\//, '');
+    return `/addon/${normalized}`;
+}
 
 export async function loadConfig() {
     if (!config) {
         try {
-            const response = await fetch(chrome.runtime.getURL('config/config.yaml'));
-            config = jsyaml.load(await response.text());
+            const response = await fetch(runtimeUrl('config/config.yaml'));
+            if (!response.ok) {
+                throw new Error(`Failed to load config: ${response.status} ${response.statusText}`);
+            }
+            config = jsyaml.load(await response.text()) || {};
             console.log("Configuration loaded:", config);
         } catch (error) {
             console.error("Failed to load configuration:", error);
-            throw error;
+            if (IS_WEB_ADMIN_UI) {
+                config = {};
+            } else {
+                throw error;
+            }
         }
     }
     return config;
@@ -30,6 +46,62 @@ export function getConfig() {
 let databaseInstance = null;
 let databaseInitialized = false;
 let initializationPromise = null;
+
+function toSuccessFactorsDate(dateStr) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const timestamp = Date.UTC(year, month - 1, day);
+    return `/Date(${timestamp})/`;
+}
+
+function calculateInclusiveDays(startDateStr, endDateStr) {
+    const start = new Date(`${startDateStr}T00:00:00Z`);
+    const end = new Date(`${endDateStr}T00:00:00Z`);
+    const diffDays = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+    return Math.max(1, diffDays);
+}
+
+function mergeExternalAbsencesIntoDatabase(db, externalAbsences) {
+    if (!Array.isArray(externalAbsences) || externalAbsences.length === 0) {
+        return;
+    }
+
+    const groupedByEmail = new Map();
+    externalAbsences.forEach(item => {
+        if (!item || typeof item !== 'object') return;
+        const email = (item.email || '').trim().toLowerCase();
+        if (!email || !item.start_date || !item.end_date) return;
+        if (!groupedByEmail.has(email)) groupedByEmail.set(email, []);
+        groupedByEmail.get(email).push(item);
+    });
+
+    groupedByEmail.forEach((items, email) => {
+        const existing = db.queryPersonByName(email) || {};
+        const convertedEmployeeTime = items.map(item => ({
+            startDate: toSuccessFactorsDate(item.start_date),
+            endDate: toSuccessFactorsDate(item.end_date),
+            quantityInDays: String(calculateInclusiveDays(item.start_date, item.end_date)),
+            timeTypeName: item.absence_type || 'external-absence',
+            approvalStatus: 'APPROVED',
+            source: 'external_portal',
+        }));
+        const existingEmployeeTime = Array.isArray(existing.employeeTime)
+            ? existing.employeeTime.filter(entry => entry?.source !== 'external_portal')
+            : [];
+
+        const person = db.normalizePerson({
+            ...existing,
+            userId: existing.userId || `ext_${email.replace(/[^a-z0-9]+/g, '_')}`,
+            name: email,
+            title: existing.title || 'External',
+            external: true,
+            team_name: existing.team_name || 'External',
+            employeeTime: [...existingEmployeeTime, ...convertedEmployeeTime],
+            holidays: existing.holidays || [],
+            nonWorkingDates: existing.nonWorkingDates || [],
+        });
+        db.updatePersonData(person);
+    });
+}
 
 export async function loadDatabase() {
     console.log('loadDatabase() called - databaseInitialized:', databaseInitialized, 'initializationPromise:', !!initializationPromise);
@@ -50,13 +122,17 @@ export async function loadDatabase() {
         const hasServer = serverUrl.length > 0;
         
         let serverData = null;
+        let externalAbsences = null;
+        let serverAbsenceData = null;
         if (hasServer) {
             console.log('Server configured, attempting to load database from server:', serverUrl);
             try {
-                const url = serverUrl.replace(/\/$/, '') + '/api/teamdb';
+                const url = serverUrl.replace(/\/$/, '') + (IS_WEB_ADMIN_UI ? '/api/admin/teamdb' : '/api/teamdb');
                 const headers = {};
-                if (serverConfig.teamdb_email) headers['X-TeamDB-Email'] = serverConfig.teamdb_email;
-                if (serverConfig.teamdb_token) headers['X-TeamDB-Token'] = serverConfig.teamdb_token;
+                if (!IS_WEB_ADMIN_UI) {
+                    if (serverConfig.teamdb_email) headers['X-TeamDB-Email'] = serverConfig.teamdb_email;
+                    if (serverConfig.teamdb_token) headers['X-TeamDB-Token'] = serverConfig.teamdb_token;
+                }
                 
                 const resp = await fetch(url, { method: 'GET', headers });
                 if (resp.ok) {
@@ -83,6 +159,31 @@ export async function loadDatabase() {
                 } else {
                     console.warn('Server returned error:', resp.status, resp.statusText, '- falling back to local data');
                 }
+
+                if (IS_WEB_ADMIN_UI || (serverConfig.teamdb_email && serverConfig.teamdb_token)) {
+                    const sfAbsenceUrl = serverUrl.replace(/\/$/, '') + (IS_WEB_ADMIN_UI ? '/api/admin/sf/absence-data' : '/api/sf/absence-data');
+                    const sfAbsenceResp = await fetch(sfAbsenceUrl, { method: 'GET', headers });
+                    if (sfAbsenceResp.ok) {
+                        const sfAbsenceJson = await sfAbsenceResp.json().catch(() => null);
+                        if (sfAbsenceJson && sfAbsenceJson.data && sfAbsenceJson.data.d && Array.isArray(sfAbsenceJson.data.d.results)) {
+                            serverAbsenceData = sfAbsenceJson.data;
+                            await storageManager.set('absence_data', serverAbsenceData);
+                        }
+                    } else if (sfAbsenceResp.status !== 404) {
+                        console.warn('Server absence payload endpoint unavailable:', sfAbsenceResp.status, sfAbsenceResp.statusText);
+                    }
+
+                    const externalUrl = serverUrl.replace(/\/$/, '') + (IS_WEB_ADMIN_UI ? '/api/admin/external/absences' : '/api/external/absences');
+                    const externalResp = await fetch(externalUrl, { method: 'GET', headers });
+                    if (externalResp.ok) {
+                        const externalJson = await externalResp.json().catch(() => null);
+                        if (externalJson && Array.isArray(externalJson.items)) {
+                            externalAbsences = externalJson.items;
+                        }
+                    } else {
+                        console.warn('External absence endpoint unavailable:', externalResp.status, externalResp.statusText);
+                    }
+                }
             } catch (err) {
                 console.warn('Failed to load from server:', err.message, '- falling back to local data');
             }
@@ -92,7 +193,7 @@ export async function loadDatabase() {
         // Try to fetch local file, but don't fail if it doesn't exist (server-only mode)
         let yamlContent = null;
         try {
-            yamlContent = await fetch('config/database.yaml').then(r => r.text());
+            yamlContent = await fetch(runtimeUrl('config/database.yaml')).then(r => r.text());
         } catch (err) {
             console.log('Local database file not found (server-only mode)');
         }
@@ -211,9 +312,13 @@ export async function loadDatabase() {
 
         // Get holiday data from storage
         const storageData = await storageManager.get('absence_data');
+        const holidayData = serverAbsenceData || storageData;
 
-        if (storageData) {
-            db.loadHolidayData(storageData);
+        if (holidayData) {
+            db.loadHolidayData(holidayData);
+        }
+        if (externalAbsences) {
+            mergeExternalAbsencesIntoDatabase(db, externalAbsences);
         }
 
         databaseInstance = db;
@@ -374,7 +479,7 @@ export function showNotification(success, message, timeout=3000) {
 
 export async function imageToBase64(imagePath) {
     try {
-        const imageUrl = chrome.runtime.getURL(imagePath);
+        const imageUrl = runtimeUrl(imagePath);
         const response = await fetch(imageUrl);
 
         if (!response.ok) {

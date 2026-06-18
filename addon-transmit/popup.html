@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SF Transmitter</title>
+    <style>
+      body { font-family: Arial, sans-serif; min-width: 340px; margin: 12px; }
+      label { display: block; margin: 8px 0 4px; font-size: 12px; }
+      input { width: 100%; box-sizing: border-box; padding: 6px; }
+      button { margin-top: 10px; width: 100%; padding: 8px; }
+      .row { margin-top: 8px; }
+      #status { margin-top: 12px; white-space: pre-wrap; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h3>SuccessFactors Transmitter</h3>
+    <label>
+      <input id="auto_transmit" type="checkbox" />
+      Auto transmit when Team Absences page is visited
+    </label>
+
+    <label for="server_url">Server URL</label>
+    <input id="server_url" type="text" placeholder="http://127.0.0.1:8765" />
+
+    <label for="teamdb_email">TeamDB Email</label>
+    <input id="teamdb_email" type="text" />
+
+    <label for="teamdb_token">TeamDB Token</label>
+    <input id="teamdb_token" type="text" />
+
+    <label for="from_date">From Date (YYYY-MM-DD)</label>
+    <input id="from_date" type="text" />
+
+    <label for="to_date">To Date (YYYY-MM-DD)</label>
+    <input id="to_date" type="text" />
+
+    <label for="default_userid">Fallback User ID</label>
+    <input id="default_userid" type="text" placeholder="Used if userId cannot be parsed from request" />
+
+    <div class="row">
+      <button id="save_button">Save Settings</button>
+      <button id="sync_button">Transmit Now</button>
+    </div>
+    <div id="status"></div>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

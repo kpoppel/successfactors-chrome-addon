@@ -20,3 +20,22 @@ port: 8765
 # - Do NOT use '*' in production. If '*' is set, credentials will be disabled for safety.
 #allow_origins: ['http://127.0.0.1', 'http://localhost']
 allow_origins: ['chrome-extension://nkhmibakbofnndfkojldebgpfnmmkphn']
+
+# Enables server-hosted UI endpoints (/ui and /portal/*).
+ui_enabled: false
+
+# Enables external consultant account + absence APIs.
+external_portal_enabled: true
+
+# Session cookie security for hosted deployments (set true behind HTTPS).
+cookie_secure: false
+
+# Admin UI session lifetime (hours).
+admin_session_hours: 12
+
+# External user session lifetime (hours).
+external_session_hours: 12
+
+# Required for encrypted external APIs and SuccessFactors payload storage. Generate with:
+# python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# external_encryption_key: "REPLACE_WITH_32_BYTE_BASE64URL_FERNET_KEY"

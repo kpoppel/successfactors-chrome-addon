@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "eSW SF Transmitter",
+  "description": "Minimal SuccessFactors absence transmitter to TeamDB server",
+  "version": "1.0.0",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "webRequest",
+    "storage",
+    "webNavigation",
+    "cookies"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}

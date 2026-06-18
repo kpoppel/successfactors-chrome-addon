@@ -13,6 +13,8 @@ This Chrome extension is designed to interact with the SuccessFactors platform t
     - Organisation diagram
     - Download of the raw data for offline processing
 
+For a reduced upload-only variant, see `../addon-transmit/`.
+
 # Installation
 
 Refer to the INSTALLATION.md file.

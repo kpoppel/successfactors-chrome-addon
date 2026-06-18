@@ -3,6 +3,14 @@ Team DB Service
 
 This FastAPI service provides a simple local API to read and write the team database used by the browser extension. It also keeps a small backup history and exposes a localhost-only token issuance endpoint so you can configure the extension to authenticate to the service.
 
+It now also supports an optional external-consultant portal:
+- self-signup with one-time token issuance
+- token-based sign-in and reset
+- absence CRUD for signed-in external users
+- encrypted storage of sensitive absence fields at rest
+- optional server-hosted UI mode (`/ui`, `/portal/*`)
+- admin session login for server-hosted calendar/org chart pages
+
 Starting the service
 --------------------
 
@@ -35,9 +43,15 @@ python3 -m pip install -r ../requirements.txt
 3. Copy the example config and edit it:
 
 ```bash
-cp example-teamdb_config.yaml teamdb_config.yml
-# Edit teamdb_config.yml to set host, port and optional data_root
+cp example-teamdb_config.yaml teamdb_config.yaml
+# Edit teamdb_config.yaml to set host, port and optional data_root
 ```
+
+For external portal features, also configure:
+- `external_encryption_key` (required, Fernet key)
+- `external_portal_enabled`
+- `ui_enabled` (only if you want browser pages served by the backend)
+- `admin_session_hours` (admin session duration for server UI login)
 
 4. Start the service:
 
@@ -121,6 +135,83 @@ Endpoints
 	{"email":"you@example.com","token":"3xN2a..."}
 	```
 
+4. POST /api/external/signup
+
+	- Create a new external account and issue an initial token.
+	- Payload: `{ "email": "external@example.com" }`
+	- Repeated signup for the same email is rejected with `409`.
+
+5. POST /api/external/login
+
+	- Token-based sign-in for external users.
+	- Payload: `{ "email": "...", "token": "..." }`
+	- Returns an HTTP-only session cookie (`external_session`).
+
+6. POST /api/external/reset
+
+	- Permanently deletes one external account and all linked absences.
+	- Payload: `{ "email": "...", "token": "..." }`
+
+7. GET/POST/PUT/DELETE /api/external/me/absences
+
+	- CRUD endpoints for the signed-in external user.
+	- Sensitive fields (`absence_type`, `note`) are encrypted at rest.
+
+8. GET /api/external/absences
+
+	- Admin endpoint (requires `X-TeamDB-Email` + `X-TeamDB-Token`).
+	- Returns merged external absences decrypted for server-side processing.
+
+8b. GET /api/public/external/absences
+
+	- Public read endpoint (minimal fields) used for public calendar rendering.
+
+9. POST /api/sf/absence-data
+
+	- Admin-authenticated endpoint for uploading raw SuccessFactors absence payloads.
+	- Required shape: object containing `d.results` array.
+	- Payload is encrypted at rest before persistence.
+
+10. GET /api/sf/absence-data
+
+	- Admin-authenticated endpoint to retrieve the latest uploaded SuccessFactors payload.
+	- Used by the full extension to load server-synced absence data.
+
+10b. GET /api/public/sf/absence-data
+
+	- Public read endpoint for the latest SuccessFactors payload used by public calendar rendering.
+
+11. POST /api/admin/login
+
+	- Starts an admin browser session using TeamDB email+token.
+	- Sets HTTP-only session cookie used by admin-protected web routes such as `/ui`.
+
+12. POST /api/admin/logout
+
+	- Terminates the admin browser session and clears the cookie.
+
+13. GET/PUT /api/admin/teamdb
+
+	- Session-authenticated admin API for reading and writing TeamDB data from the server web UI.
+	- `PUT` uses the same strict TeamDB schema validation as `/api/teamdb`.
+
+14. GET /api/admin/sf/absence-data
+
+	- Session-authenticated admin API for reading latest uploaded SuccessFactors payload.
+
+15. GET /api/admin/external/absences
+
+	- Session-authenticated admin API for reading decrypted external absences.
+
+16. UI routes
+
+	- `/` redirects to `/calendar`
+	- `/admin/login` admin sign-in page
+	- `/ui` full extension-style admin editor (session-authenticated, serves `/addon/ui.html?web=1`)
+	- `/calendar` public calendar page rendered with extension view components
+	- `/orgchart` public org chart page rendered with extension view components
+	- `/portal/*` external consultant portal pages
+
 Authentication and usage from the browser extension
 --------------------------------------------------
 
@@ -134,6 +225,8 @@ Security considerations
 
 - The service is intentionally permissive for local development. For production use you should:
   - Restrict `allow_origins` in CORS to the extension origin or trusted hosts.
+  - Set `cookie_secure: true` when serving over HTTPS.
+  - Keep `external_encryption_key` outside source control and rotate it with an operational runbook.
   - Consider expiring tokens and adding a revocation/list endpoint.
   - Store token hashes (not plaintext) and compare using a constant-time algorithm.
   - Add HTTPS and authentication for remote hosting.

@@ -3,6 +3,7 @@ import { storageManager } from './storage-manager.js';
 
 const LS_KEY = 'teamdb_local_entry';
 const CHANGES_KEY = 'teamdb_local_changes';
+const IS_WEB_ADMIN_UI = typeof window !== 'undefined' && window.__TEAMDB_WEB_UI__ === true;
 
 export async function loadLocal() {
     try {
@@ -73,10 +74,12 @@ export async function clearPendingChanges() {
 }
 
 export async function saveToServer(localEntry, serverUrl, email, token, force=false) {
-    const url = serverUrl.replace(/\/$/, '') + '/api/teamdb';
+    const url = serverUrl.replace(/\/$/, '') + (IS_WEB_ADMIN_UI ? '/api/admin/teamdb' : '/api/teamdb');
     const headers = { 'Content-Type': 'application/json' };
-    if (email) headers['X-TeamDB-Email'] = email;
-    if (token) headers['X-TeamDB-Token'] = token;
+    if (!IS_WEB_ADMIN_UI) {
+        if (email) headers['X-TeamDB-Email'] = email;
+        if (token) headers['X-TeamDB-Token'] = token;
+    }
     if (localEntry && localEntry.modified_at && !force) {
         headers['X-Client-Modified-At'] = localEntry.modified_at;
     }
