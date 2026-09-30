@@ -13,6 +13,7 @@
     padding: 12px 8px;
     border-bottom: 2px solid #ddd;
     text-align: left;
+    vertical-align: top;
     cursor: pointer;
 }
 
@@ -35,6 +36,87 @@
     padding: 8px;
     color: #666;
     background-color: #f9f9f9;
+}
+
+.people-table td.person-flags {
+    padding: 0;
+    white-space: nowrap;
+}
+
+.flag-dropdown {
+    position: relative;
+}
+
+.flag-dropdown summary {
+    padding: 8px;
+    cursor: pointer;
+}
+
+.flag-options {
+    position: absolute;
+    z-index: 10;
+    top: 100%;
+    left: 0;
+    min-width: 120px;
+    padding: 6px 8px;
+    background: white;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.flag-options label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px;
+    cursor: pointer;
+}
+
+.flag-filter-dropdown {
+    position: relative;
+}
+
+.flag-filter-dropdown summary.column-search {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 0 4px;
+    background: white;
+    list-style: none;
+    cursor: pointer;
+}
+
+.flag-filter-dropdown summary::-webkit-details-marker {
+    display: none;
+}
+
+.flag-filter-dropdown summary::after {
+    content: '\25BE';
+    float: right;
+}
+
+.flag-filters {
+    position: absolute;
+    z-index: 11;
+    top: 100%;
+    left: 0;
+    min-width: 120px;
+    padding: 8px;
+    background: white;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.flag-filters label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px;
+    cursor: pointer;
+}
+
+.flag-filters .column-search {
+    width: auto;
+    margin: 0;
 }
 
 .people-table select {
@@ -138,6 +220,8 @@
 }
 
 .header-title {
+    min-height: 2.4em;
+    line-height: 1.2;
     cursor: pointer;
     user-select: none;
 }

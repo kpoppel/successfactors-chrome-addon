@@ -11,6 +11,7 @@ export default class Database {
     constructor() {
         this.people = new Map(); // name -> person data (merged from yaml and json)
         this.teams = new Map();  // team_name -> team data
+        this._lastTeamTimestamp = 0;
         this.managers = new Map(); // manager_name -> managed people
         this.projects = []; // array of project data
         this._lastGeneratedId = 0;  // For generating unique IDs
@@ -87,6 +88,7 @@ export default class Database {
             legal_manager: legalManager || person.legal_manager || person.line_manager,
             functional_manager: person.functional_manager || person.legal_manager || person.line_manager,
             external: person.external === true || person.external === 'true',  // Ensure boolean value
+            manager: person.manager === true || person.manager === 'true',
             virtual_team: Array.isArray(person.virtual_team) ? person.virtual_team : [],
             carry_over_holidays: person.carry_over_holidays || 0,
             site: person.site || 'LY',
@@ -114,11 +116,17 @@ export default class Database {
         return processed;
     }
 
+    generateTeamId() {
+        this._lastTeamTimestamp = Math.max(Date.now(), this._lastTeamTimestamp + 1);
+        return `T${this._lastTeamTimestamp.toString(36).toUpperCase()}`;
+    }
+
     /**
      * Normalizes team data by setting default values
      */
     normalizeTeam(teamName, virtual = false) {
         return {
+            id: this.generateTeamId(),
             name: teamName,
             short_name: '',
             members: new Set(),
@@ -183,10 +191,40 @@ export default class Database {
         if (!data || !data.database) {
             throw new Error('Database object missing required "database" key');
         }
+        if (data.schema_version !== undefined &&
+            (typeof data.schema_version !== 'string' || !/^2\.\d+$/.test(data.schema_version))) {
+            throw new Error(`Unsupported database schema version: ${data.schema_version}`);
+        }
+
+        const validTeamId = id => typeof id === 'string' && /^T[0-9A-Z]{8,10}$/.test(id);
+        const lastTimestamp = data.database.last_team_timestamp ?? 0;
+        if (!Number.isSafeInteger(lastTimestamp) || lastTimestamp < 0) {
+            throw new Error('Invalid last team timestamp');
+        }
+        this._lastTeamTimestamp = lastTimestamp;
 
         if (data.database.teams) {
+            const existingIds = new Set();
             for (const teamData of data.database.teams) {
+                if (teamData.id === undefined) continue;
+                if (!validTeamId(teamData.id) || existingIds.has(teamData.id)) {
+                    throw new Error(`Invalid or duplicate team ID: ${teamData.id}`);
+                }
+                existingIds.add(teamData.id);
+            }
+            for (const id of existingIds) {
+                this._lastTeamTimestamp = Math.max(this._lastTeamTimestamp, parseInt(id.slice(1), 36));
+            }
+            for (const teamData of data.database.teams) {
+                let id = teamData.id;
+                if (!id) {
+                    do {
+                        id = this.generateTeamId();
+                    } while (existingIds.has(id));
+                    existingIds.add(id);
+                }
                 this.teams.set(teamData.name, {
+                    id,
                     name: teamData.name,
                     short_name: teamData.short_name || '',
                     members: new Set(),
@@ -291,12 +329,15 @@ export default class Database {
     exportToYaml() {
         const data = {
             version: new Date().toISOString().split('T')[0].replace(/-/g, ''),
+            schema_version: '2.0',
             database: {
+            last_team_timestamp: this._lastTeamTimestamp,
             people: Array.from(this.people.values()).map(person => ({
                 name: person.name,
                 birthday: person.birthday || '',
                 title: person.title || '',
                 external: Boolean(person.external),
+                manager: Boolean(person.manager),
                 team_name: person.team_name || '',
                 virtual_team: person.virtual_team || [],  // Always export as array
                 legal_manager: person.legal_manager || '',
@@ -309,6 +350,7 @@ export default class Database {
                 .map(team => {
                 // Create basic team structure
                 const teamData = {
+                    id: team.id,
                     name: team.name,
                     short_name: team.short_name || '',
                     functional_manager: team.functional_manager || ''
@@ -412,12 +454,10 @@ export default class Database {
      * Gets all unique managers in the database
      */
     getAllManagers() {
-        const managers = new Set();
-        this.people.forEach(person => {
-            if (person.legal_manager) managers.add(person.legal_manager);
-            if (person.functional_manager) managers.add(person.functional_manager);
-        });
-        return Array.from(managers).sort();
+        return Array.from(this.people.values())
+            .filter(person => person.manager === true)
+            .map(person => person.name)
+            .sort();
     }
 
     /**
@@ -441,6 +481,7 @@ export default class Database {
             legal_manager: person.legal_manager || '',
             functional_manager: person.functional_manager || '',
             external: person.external || false,
+            manager: person.manager || false,
             carry_over_holidays: person.carry_over_holidays || 0,
             site: person.site || 'LY',
             hasHolidayData: Boolean(person.userId && !String(person.userId).startsWith('ext_')),
@@ -599,6 +640,7 @@ export default class Database {
      */
     getAllTeams() {
         return Array.from(this.teams.values()).map(team => ({
+            id: team.id,
             name: team.name,
             short_name: team.short_name || '',
             product_owner: team.product_owner || '',
@@ -626,13 +668,15 @@ export default class Database {
         const team = this.teams.get(name);
         if (!team) return false;
 
+        const { id, ...editableUpdates } = updates;
+
         // If name is being changed, we need to update all people references
-        if (updates.name && updates.name !== name) {
+        if (editableUpdates.name && editableUpdates.name !== name) {
             // Update all people who are members of this team
             team.members.forEach(memberName => {
                 const person = this.people.get(memberName);
                 if (person && person.team_name === name) {
-                    person.team_name = updates.name;
+                    person.team_name = editableUpdates.name;
                 }
             });
 
@@ -640,14 +684,14 @@ export default class Database {
             this.teams.delete(name);
             const updatedTeam = {
                 ...team,
-                ...updates
+                ...editableUpdates
             };
-            this.teams.set(updates.name, updatedTeam);
+            this.teams.set(editableUpdates.name, updatedTeam);
         } else {
             // Just update the existing team
             const updatedTeam = {
                 ...team,
-                ...updates
+                ...editableUpdates
             };
             this.teams.set(name, updatedTeam);
         }
@@ -678,6 +722,7 @@ export default class Database {
      * Adds a new team to the database
      */
     addTeam(teamData) {
+        if (this.teams.has(teamData.name)) return false;
         const normalizedTeam = this.normalizeTeam(teamData.name, teamData.virtual || false);
         normalizedTeam.short_name = teamData.short_name || '';
         normalizedTeam.product_owner = teamData.product_owner || '';
@@ -709,6 +754,8 @@ export default class Database {
      * Removes a team from the database
      */
     removeTeam(name) {
+        const team = this.teams.get(name);
+        if (!team) return false;
         const status = this.teams.delete(name);
 
         // Notify that database has been updated

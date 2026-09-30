@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from typing import Any, Dict, List, Tuple
 
 
@@ -17,10 +18,11 @@ def validate_database(db: Any) -> None:
 
     Expected layout:
     version: '<YYYYMMDD>'
+    schema_version: '2.0'
     database:
-      people: [ {name, birthday, title, external, team_name, virtual_team, legal_manager, functional_manager, carry_over_holidays, site}, ... ]
-      teams: [ {name, product_owner, functional_manager}, ... ]
-      projects: [ {name, project_lead}, ... ]
+        people: [ {name, birthday, title, external, manager, team_name, virtual_team, legal_manager, functional_manager, carry_over_holidays, site}, ... ]
+        teams: [ {id, name, short_name, product_owner, functional_manager}, ... ]
+        projects: [ {name, project_lead}, ... ]
 
     Raises ValidationError on failure.
     """
@@ -31,6 +33,10 @@ def validate_database(db: Any) -> None:
     version = db.get('version')
     if not isinstance(version, str) or not version.isdigit() or len(version) != 8:
         raise ValidationError("'version' must be a date string like '20260107'", path=('version',))
+
+    schema_version = db.get('schema_version')
+    if not isinstance(schema_version, str) or not re.fullmatch(r'2\.\d+', schema_version):
+        raise ValidationError("'schema_version' must be a supported major.minor string (2.x)", path=('schema_version',))
 
     if 'database' not in db or not _is_mapping(db['database']):
         raise ValidationError("'database' mapping is required", path=('database',))
@@ -48,6 +54,12 @@ def validate_database(db: Any) -> None:
         raise ValidationError("'teams' must be a list", path=('database','teams'))
     if not isinstance(projects, list):
         raise ValidationError("'projects' must be a list", path=('database','projects'))
+
+    last_team_timestamp = inner.get('last_team_timestamp')
+    if (type(last_team_timestamp) is not int or
+            not 0 <= last_team_timestamp <= 9007199254740991):
+        raise ValidationError('last_team_timestamp must be a non-negative safe integer',
+                              path=('database','last_team_timestamp'))
 
     # Validation helpers
     from datetime import datetime
@@ -97,6 +109,8 @@ def validate_database(db: Any) -> None:
         # external
         if 'external' in person:
             _check_bool(person.get('external'), ppath+('external',))
+        if 'manager' in person:
+            _check_bool(person.get('manager'), ppath+('manager',))
         # team_name
         if 'team_name' in person:
             _check_str(person.get('team_name'), ppath+('team_name',))
@@ -117,6 +131,7 @@ def validate_database(db: Any) -> None:
             _check_str(person.get('site'), ppath+('site',))
 
     # Validate teams
+    team_ids = set()
     for idx, team in enumerate(teams):
         tpath = ('database','teams',str(idx))
         if not _is_mapping(team):
@@ -124,6 +139,14 @@ def validate_database(db: Any) -> None:
         if 'name' not in team:
             raise ValidationError('team.name is required', path=tpath+('name',))
         _check_str(team.get('name'), tpath+('name',))
+        team_id = team.get('id')
+        if not isinstance(team_id, str) or not re.fullmatch(r'T[0-9A-Z]{8,10}', team_id):
+            raise ValidationError('team.id must be a timestamp ID', path=tpath+('id',))
+        if team_id in team_ids:
+            raise ValidationError('team.id must be unique', path=tpath+('id',))
+        if int(team_id[1:], 36) > last_team_timestamp:
+            raise ValidationError('team.id exceeds last_team_timestamp', path=tpath+('id',))
+        team_ids.add(team_id)
         if 'short_name' in team:
             _check_str(team.get('short_name'), tpath+('short_name',))
         if 'product_owner' in team:

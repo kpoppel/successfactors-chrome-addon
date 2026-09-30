@@ -55,7 +55,8 @@ class TeamTableGenerator {
             { value: String(assignedCount), editable: false },
             { value: team.product_owner || '', options: this.people },
             { value: team.functional_manager || '', options: this.managers },
-            { value: team.parent_team || '', options: this.teamOptions.filter(n => n !== team.name) }
+            { value: team.parent_team || '', options: this.teamOptions.filter(n => n !== team.name) },
+            { value: team.id, editable: false }
         ];
 
         const cellsHtml = cells.map(cell => this.generateTableCell(cell)).join('');
@@ -85,8 +86,10 @@ class TeamTableGenerator {
             const optionsHtml = options.map(option => 
                 `<option value="${option}" ${option === value ? 'selected' : ''}>${option}</option>`
             ).join('');
+            const legacyOption = value && !options.includes(value)
+                ? `<option value="${value}" selected disabled>${value}</option>` : '';
             
-            return `<td><select class="table-select">${emptyOption}${optionsHtml}</select></td>`;
+            return `<td><select class="table-select">${emptyOption}${optionsHtml}${legacyOption}</select></td>`;
         } else if (editable) {
             // Generate editable cell
             return `<td class="editable" contenteditable="true">${value}</td>`;
@@ -178,10 +181,7 @@ async function setupExportButton(container, db) {
         if (serverUrl) {
             try {
                 // Prepare local entry for common saveToServer function
-                const localEntry = await loadLocal();
-                if (!localEntry) {
-                    throw new Error('No local data to save');
-                }
+                const localEntry = await loadLocal() || { data: jsyaml.load(yaml) };
                 const result = await saveToServerCommon(localEntry, serverUrl, items.teamdb_email, items.teamdb_token);
                 const message = result.message || 'Saved to server';
                 showNotification(true, message);
@@ -263,10 +263,7 @@ async function setupExportButton(container, db) {
             const yaml = db.exportToYaml();
             try {
                 const items = await storageManager.getMultiple(['server_url', 'teamdb_email', 'teamdb_token']);
-                const localEntry = await loadLocal();
-                if (!localEntry) {
-                    throw new Error('No local data to save');
-                }
+                const localEntry = await loadLocal() || { data: jsyaml.load(yaml) };
                 const result = await saveToServerCommon(localEntry, items.server_url, items.teamdb_email, items.teamdb_token);
                 const message = result.message || 'Saved to server';
                 showNotification(true, message);

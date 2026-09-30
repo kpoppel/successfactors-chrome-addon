@@ -42,6 +42,20 @@ This extension requires the following browser permissions:
 In `src/databse.js` a representation of the data loaded from SuccessFactors and the file `config/databse.yaml` is gathered anf various functions to query, modify and export are implemented.  This is to have a single place to update the database while keeping the way to access it as stable as possible.
 **note:** The popup buttons do not use the database but the raw data and other YAMl files directly. This must be updated.
 
+Database documents use a top-level `schema_version` string in `major.minor` format, currently `"2.0"`. A new major version changes existing field semantics; a minor version only adds fields. Consumers should reject unsupported major versions and may ignore unknown fields from newer minor versions. The separate date-based `version` field is used for cache freshness, not schema compatibility.
+
+People may set `manager: true` independently of `external: true`. Only people explicitly marked as managers appear in legal and functional manager selectors. When upgrading an older database, mark existing managers with `manager: true` and add `schema_version: "2.0"` before sending it to the server. Untagged existing assignments remain visible but cannot be selected as new assignments. Missing `manager` fields are treated as `false` when loading older files.
+
+Every team has a unique, immutable `id` derived from its creation timestamp in
+uppercase base 36 with a `T` prefix (for example `TMUNSQ491`). Multiple teams
+created in the same millisecond receive successive logical timestamps. Use the
+ID for external references: `name` and `short_name` can change. Existing teams
+without an ID are assigned one when loaded in the full UI; save the database
+to persist these IDs before using them externally. The single
+`database.last_team_timestamp` value prevents reuse after deletion or clock
+rollback; no list of old IDs is kept. People assignments continue to use team
+names. The server rejects duplicate IDs and invalid timestamps.
+
 ## The full UI
 This is a feature to allow viewing and editing data directly instad of having to download files. The purpose is to provide a nicer interface to build the database of team members, teams and projects worked on. It is more an experiment than something which is strictly necessary at the point. The full UI is loaded through the `ui.html` file which in turn makes use of `src/ui-main,js` which loads finctions from `src/people-ui.js`, `src/calendar-ui.js`, `src/absence-ui.js`, and `src/orgchart-ui.js`.
 

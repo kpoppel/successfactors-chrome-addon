@@ -62,11 +62,12 @@ function sortTable(columnName) {
         aValue = aSelect ? aSelect.value : aCell.textContent.trim();
         bValue = bSelect ? bSelect.value : bCell.textContent.trim();
 
-        // Special handling for external column
         if (columnName === 'external') {
-            return currentSortDirection === 'asc' ? 
-                aValue.localeCompare(bValue) : 
-                bValue.localeCompare(aValue);
+            const selectedFields = Array.from(table.querySelectorAll('.flag-filters input:checked'))
+                .map(input => input.dataset.column);
+            const fields = selectedFields.length ? selectedFields : ['external', 'manager'];
+            aValue = fields.map(field => Number(aCell.querySelector(`.person-flag[data-field="${field}"]`).checked)).join('');
+            bValue = fields.map(field => Number(bCell.querySelector(`.person-flag[data-field="${field}"]`).checked)).join('');
         }
         
         if (currentSortDirection === 'asc') {
@@ -82,7 +83,7 @@ function sortTable(columnName) {
 
 function filterTable() {
     const table = document.getElementById('peopleTable');
-    const searchInputs = table.querySelectorAll('.column-search');
+    const searchInputs = table.querySelectorAll('input.column-search, select.column-search');
     const rows = Array.from(table.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
     
     const columnIndices = {
@@ -93,13 +94,14 @@ function filterTable() {
         'legal_manager': 4,
         'functional_manager': 5,
         'external': 6,
+        'manager': 6,
         'virtual_team': 7
     };
     
     rows.forEach(row => {
         let showRow = true;
         searchInputs.forEach(input => {
-            if (!input.value.trim()) return;
+            if (input.type === 'checkbox' ? !input.checked : !input.value.trim()) return;
             const columnName = input.dataset.column;
             const columnIndex = columnIndices[columnName];
             
@@ -108,20 +110,9 @@ function filterTable() {
                 cell.querySelector('select').value : 
                 cell.textContent.trim();
 
-            // Special handling for external column search
-            if (columnName === 'external') {
-                const searchVal = input.value.toLowerCase();
-                cellValue = cellValue.toLowerCase();
-                
-                // Map true/yes and false/no values
-                const isMatch = 
-                    (searchVal === 'true' && (cellValue === 'true' || cellValue === 'yes')) ||
-                    (searchVal === 'false' && (cellValue === 'false' || cellValue === 'no')) ||
-                    (searchVal === 'yes' && (cellValue === 'true' || cellValue === 'yes')) ||
-                    (searchVal === 'no' && (cellValue === 'false' || cellValue === 'no')) ||
-                    cellValue.includes(searchVal);
-                
-                if (!isMatch) {
+            if (columnName === 'external' || columnName === 'manager') {
+                const checked = cell.querySelector(`.person-flag[data-field="${columnName}"]`).checked;
+                if (!checked) {
                     showRow = false;
                 }
                 return;
@@ -165,16 +156,28 @@ export function initializeTableHandlers() {
     console.log('Headers found:', headers.length);
     
     // Add search handlers
-    const searchInputs = document.querySelectorAll('.column-search');
+    const searchInputs = document.querySelectorAll('#peopleTable input.column-search, #peopleTable select.column-search');
     searchInputs.forEach(input => {
-        input.addEventListener('input', (e) => {
+        input.addEventListener(input.type === 'checkbox' ? 'change' : 'input', (e) => {
             e.stopPropagation();
+            if (input.type === 'checkbox') {
+                const dropdown = input.closest('.flag-filter-dropdown');
+                const fields = Array.from(dropdown.querySelectorAll('input:checked'))
+                    .map(checkbox => checkbox.dataset.column === 'external' ? 'Ext.' : 'Mgr.');
+                dropdown.querySelector('summary').textContent = fields.join(', ') || 'All';
+            }
             filterTable();
         });
         
         // Prevent sorting when clicking search input
         input.addEventListener('click', (e) => {
             e.stopPropagation();
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        document.querySelectorAll('.flag-filter-dropdown[open]').forEach(dropdown => {
+            if (!dropdown.contains(event.target)) dropdown.open = false;
         });
     });
     

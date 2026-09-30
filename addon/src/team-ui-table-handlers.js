@@ -49,7 +49,8 @@ function sortTable(columnName, tableId) {
             'assigned': 2,
             'product_owner': 3,
             'functional_manager': 4,
-            'parent_team': 5
+            'parent_team': 5,
+            'id': 6
         }[columnName];
     } else if (tableId === 'projectsTable') {
         columnIndex = {
@@ -102,7 +103,8 @@ function filterTable(tableId) {
             'short_name': 1,
             'product_owner': 3,
             'functional_manager': 4,
-            'parent_team': 5
+            'parent_team': 5,
+            'id': 6
         };
     } else if (tableId === 'projectsTable') {
         columnIndices = {

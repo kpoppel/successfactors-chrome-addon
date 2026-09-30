@@ -35,22 +35,24 @@ class PeopleTableGenerator {
     }
 
     generateHeaders() {
-        const sortableColumns = ['Name', 'Birthday', 'Title', 'Team(s)', 'Legal Manager', 'Functional Manager', 'External', 'Virtual Teams'];
+        const sortableColumns = ['Name', 'Birthday', 'Title', 'Team(s)', 'Legal Manager', 'Functional Manager', 'Ext./Mgr.', 'Virtual Teams'];
         const headers = [...sortableColumns, 'Actions'];
         
         return headers.map(header => {
-            if (header === 'External') {
+            if (header === 'Ext./Mgr.') {
                 return `<th data-column="external">
                     <div class="header-content">
                         <div class="header-title">
                             ${header}
                             <span class="sort-indicator"></span>
                         </div>
-                        <select class="column-search" data-column="external">
-                            <option value="">All</option>
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                        </select>
+                        <details class="flag-filter-dropdown">
+                            <summary class="column-search">All</summary>
+                            <div class="flag-filters">
+                                <label><input type="checkbox" class="column-search" data-column="external">Ext.</label>
+                                <label><input type="checkbox" class="column-search" data-column="manager">Mgr.</label>
+                            </div>
+                        </details>
                     </div>
                 </th>`;
             }
@@ -96,7 +98,7 @@ class PeopleTableGenerator {
             { value: person.team_name || '', options: this.teamNames },
             { value: person.legal_manager || '', options: this.managers },
             { value: person.functional_manager || '', options: this.managers },
-            { value: person.external, type: 'external' },  // Pass the boolean value directly
+            { external: person.external, manager: person.manager, type: 'flags' },
             { 
                 value: person.virtual_team || [], 
                 type: 'virtual_team',
@@ -119,12 +121,16 @@ class PeopleTableGenerator {
             return `<td><button class="table-button delete-row">${cellConfig.value}</button></td>`;
         }
         
-        if (cellConfig.type === 'external') {
-            return `<td>
-                <select class="table-select external-select">
-                    <option value="true" ${cellConfig.value === true ? 'selected' : ''}>Yes</option>
-                    <option value="false" ${cellConfig.value === false ? 'selected' : ''}>No</option>
-                </select>
+        if (cellConfig.type === 'flags') {
+            const selected = [cellConfig.external && 'Ext.', cellConfig.manager && 'Mgr.'].filter(Boolean).join(', ') || 'No';
+            return `<td class="person-flags">
+                <details class="flag-dropdown">
+                    <summary>${selected}</summary>
+                    <div class="flag-options">
+                        <label><input type="checkbox" class="person-flag" data-field="external" ${cellConfig.external ? 'checked' : ''}>External</label>
+                        <label><input type="checkbox" class="person-flag" data-field="manager" ${cellConfig.manager ? 'checked' : ''}>Manager</label>
+                    </div>
+                </details>
             </td>`;
         }
 
@@ -159,12 +165,14 @@ class PeopleTableGenerator {
                 const selected = option === cellConfig.value ? 'selected' : '';
                 return `<option value="${option}" ${selected}>${option}</option>`;
             }).join('');
+            const legacyOption = cellConfig.value && !cellConfig.options.includes(cellConfig.value)
+                ? `<option value="${cellConfig.value}" selected disabled>${cellConfig.value}</option>` : '';
 
             return `
                 <td style="position: relative;">
                     <select class="table-select">
                         <option value=""></option>
-                        ${options}
+                        ${options}${legacyOption}
                     </select>
                 </td>`;
         }
@@ -362,6 +370,23 @@ async function setupExportButton(container, db) {
     }
 }
 
+function refreshManagerOptions(db) {
+    const managers = db.getAllManagers();
+    document.querySelectorAll('#peopleTable tbody tr').forEach(personRow => {
+        [4, 5].forEach(index => {
+            const select = personRow.cells[index].querySelector('select');
+            const selected = select.value;
+            select.replaceChildren(new Option('', ''), ...managers.map(name => new Option(name, name)));
+            if (selected && !managers.includes(selected)) {
+                select.add(new Option(selected, selected, true, true));
+                select.options[select.selectedIndex].disabled = true;
+            } else {
+                select.value = selected;
+            }
+        });
+    });
+}
+
 function addEventHandlers(db) {
     // Add new person handler
     const addButton = document.querySelector('.add-person-button');
@@ -375,7 +400,8 @@ function addEventHandlers(db) {
                 title: '',
                 birthday: '',
                 legal_manager: '',
-                functional_manager: ''
+                functional_manager: '',
+                manager: false
             });
             
             db.updatePersonData(person);
@@ -427,6 +453,7 @@ function addEventHandlers(db) {
                 await addPendingChange('people', name);
                 row.classList.add('pending-row');
                 row.remove();
+                refreshManagerOptions(db);
             }
         });
     });
@@ -450,6 +477,41 @@ function addEventHandlers(db) {
     // Handle select changes
     document.querySelectorAll('.table-select').forEach(select => {
         select.addEventListener('change', () => handleSelectChange(select, db));
+    });
+
+    document.querySelectorAll('.person-flag').forEach(checkbox => {
+        checkbox.addEventListener('change', async () => {
+            const row = checkbox.closest('tr');
+            const dropdown = checkbox.closest('.flag-dropdown');
+            const flags = dropdown.querySelectorAll('.person-flag');
+            dropdown.querySelector('summary').textContent = Array.from(flags)
+                .filter(flag => flag.checked)
+                .map(flag => flag.dataset.field === 'external' ? 'Ext.' : 'Mgr.')
+                .join(', ') || 'None';
+            db.updatePersonByUserId(row.dataset.userid, { [checkbox.dataset.field]: checkbox.checked });
+            await addPendingChange('people', row.cells[0].textContent.trim());
+            row.classList.add('pending-row');
+            if (checkbox.dataset.field === 'manager') {
+                refreshManagerOptions(db);
+            }
+            document.querySelector('.flag-filters .column-search:checked')
+                ?.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+
+    document.querySelectorAll('.flag-dropdown').forEach(dropdown => {
+        dropdown.addEventListener('toggle', () => {
+            if (dropdown.open) {
+                document.querySelectorAll('.flag-dropdown[open]').forEach(other => {
+                    if (other !== dropdown) other.open = false;
+                });
+            }
+        });
+    });
+    document.addEventListener('click', (event) => {
+        document.querySelectorAll('.flag-dropdown[open]').forEach(dropdown => {
+            if (!dropdown.contains(event.target)) dropdown.open = false;
+        });
     });
 
     // Replace the virtual team handlers section in addEventHandlers
@@ -531,6 +593,7 @@ async function handleCellEdit(cell, db) {
 
     // Update the database using userId
     db.updatePersonByUserId(userId, updates);
+    if (property === 'name') refreshManagerOptions(db);
     try {
         const name = updates.name || row.cells[0].textContent.trim();
         await addPendingChange('people', name);
@@ -548,15 +611,14 @@ async function handleSelectChange(select, db) {
     const propertyMap = {
         3: 'team_name',
         4: 'legal_manager',
-        5: 'functional_manager',
-        6: 'external'
+        5: 'functional_manager'
     };
 
     const property = propertyMap[columnIndex];
     if (!property) return;
 
     const updates = {
-        [property]: property === 'external' ? select.value === 'true' : select.value
+        [property]: select.value
     };
 
     // Update the database using userId

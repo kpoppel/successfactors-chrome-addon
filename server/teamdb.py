@@ -250,8 +250,15 @@ async def api_put_teamdb(request: Request):
         raise HTTPException(status_code=403, detail='Invalid token')
 
     try:
+        if DEFAULT_DB_PATH.exists():
+            current = load_database()
+            current_timestamp = (current.get('database') or {}).get('last_team_timestamp', 0)
+            if isinstance(current_timestamp, int) and payload['database']['last_team_timestamp'] < current_timestamp:
+                raise HTTPException(status_code=412, detail='Server has a newer team ID timestamp')
         save_database(payload)
         return JSONResponse(content={'ok': True})
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
