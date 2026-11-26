@@ -1,0 +1,22 @@
+{
+    "manifest_version": 3,
+    "name": "SF Team Absence Calendar",
+    "description": "Builds an absence calendar for a person and everyone below them in the reporting tree, using your own SuccessFactors session.",
+    "version": "1.0.0",
+    "action": {
+        "default_title": "Open absence calendar"
+    },
+    "options_page": "options.html",
+    "permissions": [
+        "webRequest",
+        "storage",
+        "unlimitedStorage"
+    ],
+    "host_permissions": [
+        "https://*.successfactors.eu/*",
+        "https://*.successfactors.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    }
+}

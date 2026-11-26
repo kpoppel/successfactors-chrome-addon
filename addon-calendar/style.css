@@ -1,0 +1,40 @@
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
+body.options { max-width: 480px; margin: 20px auto; }
+body.options label { display: block; margin: 10px 0; }
+body.options input, body.options select { display: block; width: 100%; padding: 5px; box-sizing: border-box; }
+body.options fieldset { border: 0; padding: 0; }
+
+#status { padding: 10px 15px; }
+#status.error { color: #b00020; }
+#chooser { padding: 10px 15px; }
+#chooser button { display: block; margin: 4px 0; }
+h1 { text-align: center; font-size: 18px; margin: 0; padding: 10px; background: #f0f0f0; border-bottom: 1px solid #ccc; }
+#generated { font-size: 12px; text-align: center; padding: 6px; background: #f8f8f8; border-top: 1px solid #e0e0e0; }
+
+.layout { display: flex; height: calc(100vh - 90px); }
+.sidebar { width: 220px; overflow-y: auto; background: #f9f9f9; border-right: 1px solid #ccc; flex-shrink: 0; }
+.sidebar input { width: 190px; margin: 5px 10px; padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
+.filter { padding: 5px 15px; cursor: pointer; background: #f0f0f0; color: #333; border-radius: 3px; margin: 2px 0; white-space: nowrap; }
+.filter:hover { background: #e0e0e0; }
+.filter.active { background: #007acc; color: #fff; }
+
+.grid { flex: 1; overflow: auto; }
+table { border-collapse: collapse; }
+th, td { border: 1px solid #ccc; padding: 4px; text-align: center; font-size: 12px; min-width: 18px; }
+thead th { position: sticky; background: #fff; z-index: 1; cursor: default; }
+thead tr:nth-child(1) th { top: 0; }
+thead tr:nth-child(2) th { top: 27px; }
+thead tr:nth-child(3) th { top: 54px; }
+thead th.corner { left: 0; z-index: 2; }
+thead th.even-month { background: #d3d3d3; }
+td.name { position: sticky; left: 0; background: #f9f9f9; z-index: 1; white-space: nowrap; text-align: left; min-width: 180px; }
+td.name.manager { font-weight: 600; }
+
+td.even-month { background: rgba(211, 211, 211, .5); }
+td.non-working { background: grey !important; }
+td.absence { background: blue !important; }
+td.absence_planned { background: #00ff9e !important; }
+td.absence_cancelled { background: #fff2e0 !important; }
+.current-date { background: rgba(255, 191, 191, 1) !important; }
+tr.hidden { display: none; }
+.hide-past .past { display: none; }

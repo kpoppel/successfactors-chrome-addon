@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>SF Team Absence Calendar - Settings</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="options">
+    <h1>Settings</h1>
+    <form id="form">
+        <label>SuccessFactors host
+            <input name="sf_host" type="text">
+        </label>
+        <label>Root person (name or user ID)
+            <input name="root_query" type="text" placeholder="John Doe or 12345678">
+        </label>
+        <label>Date range
+            <select name="date_mode">
+                <option value="rolling">Rolling window</option>
+                <option value="fixed">Fixed dates</option>
+            </select>
+        </label>
+        <fieldset id="rolling">
+            <label>Months back <input name="months_back" type="number" min="0" max="24"></label>
+            <label>Months forward <input name="months_forward" type="number" min="0" max="24"></label>
+        </fieldset>
+        <fieldset id="fixed">
+            <label>From (YYYY-MM-DD) <input name="from_date" type="text" pattern="\d{4}-\d{2}-\d{2}"></label>
+            <label>To (YYYY-MM-DD) <input name="to_date" type="text" pattern="\d{4}-\d{2}-\d{2}"></label>
+        </fieldset>
+        <button type="submit">Save</button>
+        <span id="status"></span>
+    </form>
+    <script type="module" src="options.js"></script>
+</body>
+</html>

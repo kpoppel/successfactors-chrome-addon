@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Absence Calendar</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="status"></div>
+    <div id="chooser" hidden></div>
+    <div id="calendar" hidden>
+        <h1 id="title"></h1>
+        <div class="layout">
+            <div class="sidebar">
+                <div class="filter" id="refresh">Refresh data</div>
+                <input type="text" id="searchInput" placeholder="Search names..">
+                <div id="filters"></div>
+            </div>
+            <div class="grid"><table id="table"></table></div>
+        </div>
+        <div id="generated"></div>
+    </div>
+    <script type="module" src="calendar.js"></script>
+</body>
+</html>
